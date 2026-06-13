@@ -1,6 +1,6 @@
 # 🚀 GitHub 技术趋势探测器
 
-从 GitHub 抓取四维数据，AI 分析技术趋势，生成可视化 HTML 报告。
+从 GitHub 抓取三维数据，AI 分析技术趋势，生成可视化 HTML 报告，支持每周自动采集。
 
 ## 快速开始
 
@@ -19,9 +19,14 @@ python main.py --report --view
 
 | 命令 | 说明 |
 |------|------|
-| `python main.py` | 完整采集（Trending + Topics + Awesome + 校招） |
+| `python main.py` | 完整采集（Trending + Topics + Awesome） |
+`python main.py --save` | 采集并存历史快照（用于趋势对比） |
 | `python main.py --trending` | 只看 Trending（1 分钟） |
-| `python main.py --report --view` | 从已有数据生成报告 |
+| `python main.py --report --view` | 从已有数据生成报告并打开浏览器 |
+
+### 自动任务
+
+Windows 任务计划每周一 10:23 自动执行 `auto_run.bat`（采集 → 存快照 → 出报告）。错过自动补跑，需 Clash 代理在 7897 端口运行。
 | `python main.py --save` | 采集并保存带时间戳的快照 |
 
 ## 报告内容
@@ -50,7 +55,8 @@ pip install requests beautifulsoup4 lxml
 
 ```
 github-trends/
-├── crawlers/           # 四个爬虫 + 基类
+├── crawlers/           # 三个爬虫 + 基类
+├── auto_run.bat         # 自动任务脚本（代理检测+重试）
 ├── analyzer.py         # 数据分析（排名/汇总）
 ├── store.py            # JSON/HTML 输出
 ├── main.py             # CLI 入口
