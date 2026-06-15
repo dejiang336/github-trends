@@ -52,8 +52,10 @@ def collect_mode(args):
     if not token:
         try:
             claude_cfg = json.load(open(os.path.expanduser("~/.claude.json"), encoding="utf-8"))
-            proj = claude_cfg.get("projects", {}).get("C:/Users/jd", {})
-            token = proj.get("mcpServers", {}).get("github", {}).get("env", {}).get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+            for proj in claude_cfg.get("projects", {}).values():
+                token = proj.get("mcpServers", {}).get("github", {}).get("env", {}).get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+                if token:
+                    break
         except Exception:
             pass
 

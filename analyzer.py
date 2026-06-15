@@ -68,13 +68,13 @@ def analyze_topic_size(topics_data: list[dict]) -> dict:
 # ── 3. 新兴领域分析 ────────────────────────────────────────────
 
 def analyze_rising_domains(awesome_data: list[dict], top_n: int = 20) -> list[dict]:
-    """识别新兴领域：有创建时间的按 stars/天排序，没有的按总 stars 排序。"""
-    for r in awesome_data:
-        if r.get("stars_per_day", 0) == 0 and r.get("stars", 0) > 0:
-            # 没有创建时间时，用总 stars/365 估算日均
-            r["stars_per_day"] = round(r["stars"] / max(r.get("days_old", 365), 1), 1)
-    # 按 stars_per_day 降序
-    sorted_list = sorted(awesome_data, key=lambda r: r.get("stars_per_day", 0), reverse=True)
+    """识别新兴领域：有创建时间的按 stars/天排序，没有的按总 stars 估算日均。"""
+    def _stars_per_day(r):
+        spd = r.get("stars_per_day", 0)
+        if spd == 0 and r.get("stars", 0) > 0:
+            spd = round(r["stars"] / max(r.get("days_old", 365), 1), 1)
+        return spd
+    sorted_list = sorted(awesome_data, key=_stars_per_day, reverse=True)
     return sorted_list[:top_n]
 
 
