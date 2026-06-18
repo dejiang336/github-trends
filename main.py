@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from crawlers.trending import TrendingCrawler
 from crawlers.topics import TopicsCrawler
 from crawlers.awesome import AwesomeDiscoverer
+from crawlers.v2ex import V2EXCrawler
 from store import to_json, auto_filename
 from analyzer import (
     analyze_language_heat, analyze_topic_size,
@@ -33,6 +34,7 @@ def build_parser():
     p.add_argument("--trending", action="store_true", help="仅 Trending")
     p.add_argument("--topics",   action="store_true", help="仅 Topics")
     p.add_argument("--awesome",  action="store_true", help="仅 Awesome")
+    p.add_argument("--v2ex",    action="store_true", help="仅 V2EX")
     p.add_argument("--report",   action="store_true", help="从已存数据生成 HTML 报告")
     p.add_argument("--view",     action="store_true", help="打开浏览器")
     p.add_argument("--save",     action="store_true", help="保存历史快照（自动）")
@@ -45,7 +47,7 @@ def build_parser():
 # ═══════════════════════════════════════════════════════════════
 
 def collect_mode(args):
-    run_all = not any([args.trending, args.topics, args.awesome])
+    run_all = not any([args.trending, args.topics, args.awesome, args.v2ex])
 
     # GitHub token：优先读环境变量，其次读 claude 配置
     token = os.environ.get("GITHUB_TOKEN", "")
@@ -59,7 +61,7 @@ def collect_mode(args):
         except Exception:
             pass
 
-    trending_data, topics_data, awesome_data = [], [], []
+    trending_data, topics_data, awesome_data, v2ex_data = [], [], [], []
 
     if run_all or args.trending:
         print("\n" + "=" * 55)
@@ -85,6 +87,14 @@ def collect_mode(args):
         c = AwesomeDiscoverer(rate_limit=10.0, token=token)
         awesome_data = c.crawl()
         print(f"  → {len(awesome_data)} 个仓库\n")
+
+    if run_all or args.v2ex:
+        print("=" * 55)
+        print("  💬 维度四：中文社区脉搏（V2EX 热门）")
+        print("=" * 55)
+        c = V2EXCrawler(rate_limit=3.0)
+        v2ex_data = c.crawl()
+        print(f"  → {len(v2ex_data)} 条话题\n")
 
     # ── 汇总分析 ──
     lang_heat  = analyze_language_heat(trending_data) if trending_data else {}
@@ -117,6 +127,7 @@ def collect_mode(args):
         "rising_domains": rising,
         "top_trending": top_trending,
         "top_awesome": top_awesome,
+        "v2ex_hot": v2ex_data,
     }
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data_pkg, f, ensure_ascii=False, indent=2)
@@ -245,6 +256,7 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
     rising       = data.get("rising_domains", [])
     top_trending = data.get("top_trending", [])
     top_awesome  = data.get("top_awesome", [])
+    v2ex_hot     = data.get("v2ex_hot", [])
 
     # ── 语言热度（带排名变化箭头） ──
     lang_rows = ""
@@ -291,6 +303,14 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
         f"<td>{esc(r.get('language',''))}</td><td>+{r.get('stars_period',0):,}</td></tr>"
         for r in top_trending[:15]
     )
+
+    # ── V2EX 热门 ──
+    v2ex_rows = "".join(
+        f"<tr><td><a href='{esc(d.get('url',''))}' target='_blank'>{esc(d.get('title',''))}</a></td>"
+        f"<td><span class='v2ex-node'>{esc(d.get('node',''))}</span></td>"
+        f"<td>{d.get('replies',0)}</td></tr>"
+        for d in v2ex_hot[:15]
+    ) or '<tr><td colspan="3" style="color:#8b949e;">暂无数据</td></tr>'
 
     # ── AI 洞察 ──
     insights_html = "".join(f"<li>{esc(line)}</li>" for line in insights)
@@ -376,7 +396,15 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
   <table><thead><tr><th>仓库</th><th>描述</th><th>⭐</th><th>日均</th></tr></thead><tbody>{rising_rows}</tbody></table>
 </div>
 </div>
-<footer>GitHub 技术趋势探测器 © 2026 — 数据: github.com &nbsp;|&nbsp; 洞察: Claude AI</footer>
+</div>
+
+<h2>💬 V2EX 社区热门</h2>
+<div class="card">
+  <table><thead><tr><th>话题</th><th>节点</th><th>回复</th></tr></thead><tbody>{v2ex_rows}</tbody></table>
+  <p style="font-size:11px;color:#8b949e;margin-top:8px;">* 数据来源: v2ex.com · 国内开发者正在讨论什么</p>
+</div>
+
+<footer>GitHub 技术趋势探测器 © 2026 — 数据: github.com &nbsp;|&nbsp; V2EX &nbsp;|&nbsp; 洞察: Claude AI</footer>
 </div>
 </body>
 </html>"""
