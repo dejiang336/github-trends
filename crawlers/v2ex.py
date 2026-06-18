@@ -51,7 +51,18 @@ class V2EXCrawler(BaseCrawler):
                 "tid": tid,
             })
 
-        logger.info("[v2ex] 热门话题 | %d 条", len(results))
+        # 对 Top 5 热门帖拉正文详情
+        top5 = sorted(results, key=lambda r: r["replies"], reverse=True)[:5]
+        for r in top5:
+            if r["tid"]:
+                detail = self.get_topic_detail(r["tid"])
+                if detail:
+                    r["content"] = detail["content"]
+                    r["top_reply"] = detail["top_reply"]
+
+        logger.info("[v2ex] 热门话题 | %d 条（含 %d 条详情）", len(results),
+                    sum(1 for r in results if r.get("content")))
+
         return results
 
     @staticmethod

@@ -304,13 +304,27 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
         for r in top_trending[:15]
     )
 
-    # ── V2EX 热门 ──
-    v2ex_rows = "".join(
-        f"<tr><td><a href='{esc(d.get('url',''))}' target='_blank'>{esc(d.get('title',''))}</a></td>"
-        f"<td><span class='v2ex-node'>{esc(d.get('node',''))}</span></td>"
-        f"<td>{d.get('replies',0)}</td></tr>"
-        for d in v2ex_hot[:15]
-    ) or '<tr><td colspan="3" style="color:#8b949e;">暂无数据</td></tr>'
+    # ── V2EX 热门（分 tech 和 other） ──
+    TECH_NODES = {"程序员","职场话题","分享创造","分享发现","OpenAI","Apple","投资",
+                  "问与答","求职","奇思妙想","Bitcoin","Android","iOS","前端","后端",
+                  "云计算","机器学习","游戏开发","设计","硬件","创业","外包","远程工作"}
+    tech_topics = [d for d in v2ex_hot if d.get("node","") in TECH_NODES]
+    other_topics = [d for d in v2ex_hot if d.get("node","") not in TECH_NODES]
+
+    def _v2ex_rows(topics, limit=99):
+        rows = ""
+        for d in topics[:limit]:
+            user = esc(d.get("user",""))
+            tag = "<span class='v2ex-promo'>推广</span>" if d.get("node","") == "推广" else ""
+            rows += (
+                f"<tr><td><a href='{esc(d.get('url',''))}' target='_blank'>{esc(d.get('title',''))}</a></td>"
+                f"<td><span class='v2ex-node'>{esc(d.get('node',''))}</span>{tag}</td>"
+                f"<td>{esc(user)}</td><td>{d.get('replies',0)}</td></tr>"
+            )
+        return rows or '<tr><td colspan="4" style="color:#8b949e;">暂无数据</td></tr>'
+
+    v2ex_rows = _v2ex_rows(tech_topics, 15)
+    v2ex_other_rows = _v2ex_rows(other_topics, 10)
 
     # ── AI 洞察 ──
     insights_html = "".join(f"<li>{esc(line)}</li>" for line in insights)
@@ -354,6 +368,10 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
                padding:2px 10px; border-radius:10px; margin-left:8px; }}
   .history-badge {{ display:inline-block; background:#1f2a37; color:#8b949e; font-size:11px;
                     padding:2px 8px; border-radius:10px; margin-left:4px; }}
+  .v2ex-node {{ display:inline-block; background:#238636; color:#fff; font-size:10px;
+               padding:1px 8px; border-radius:10px; }}
+  .v2ex-promo {{ display:inline-block; background:#f85149; color:#fff; font-size:10px;
+                padding:1px 6px; border-radius:10px; margin-left:4px; }}
 </style>
 </head>
 <body>
@@ -398,11 +416,18 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
 </div>
 </div>
 
-<h2>💬 V2EX 社区热门</h2>
+<h2>💬 V2EX 技术圈热门</h2>
 <div class="card">
-  <table><thead><tr><th>话题</th><th>节点</th><th>回复</th></tr></thead><tbody>{v2ex_rows}</tbody></table>
-  <p style="font-size:11px;color:#8b949e;margin-top:8px;">* 数据来源: v2ex.com · 国内开发者正在讨论什么</p>
+  <table><thead><tr><th>话题</th><th>节点</th><th>楼主</th><th>回复</th></tr></thead><tbody>{v2ex_rows}</tbody></table>
+  <p style="font-size:11px;color:#8b949e;margin-top:8px;">* 数据来源: v2ex.com · 已过滤推广/生活类节点 · Top 5 热门帖含正文摘要</p>
 </div>
+
+<details style="margin-top:12px;">
+<summary style="color:#8b949e;cursor:pointer;font-size:13px;">📋 其他话题（推广/生活/购物/地域）</summary>
+<div class="card" style="margin-top:8px;">
+  <table><thead><tr><th>话题</th><th>节点</th><th>楼主</th><th>回复</th></tr></thead><tbody>{v2ex_other_rows}</tbody></table>
+</div>
+</details>
 
 <footer>GitHub 技术趋势探测器 © 2026 — 数据: github.com &nbsp;|&nbsp; V2EX &nbsp;|&nbsp; 洞察: Claude AI</footer>
 </div>
