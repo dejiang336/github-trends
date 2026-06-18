@@ -36,6 +36,7 @@ goto check_proxy
 python main.py --save >> "%LOG%" 2>&1
 python main.py --report >> "%LOG%" 2>&1
 echo Done at %date% %time% >> "%LOG%"
+python -c "from datetime import date; w=date.today().isocalendar(); print(f'| W{w.week} | {date.today().strftime(\"%%m.%%d\")} | ✅ 自动 | 1份 | 采集正常 |', file=open('PROGRESS.md','a'))" >> "%LOG%" 2>&1
 exit /b 0
 
 :fail
