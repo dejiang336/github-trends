@@ -3,7 +3,7 @@
 ## 当前状态
 - 版本：v2.0
 - 数据源：GitHub Trending / Topics / Awesome + V2EX
-- 自动化：Windows 任务计划 每周一 10:23
+- 自动化：Windows 任务计划 每周一 10:00
 - 部署：本地 Windows + GitHub 备份
 
 ## 功能列表
@@ -42,7 +42,7 @@ output/snapshots/
 
 ## 维护备忘
 
-- 代理挂了 → auto_run.bat 会重试 3h，周一 10:23 到 13:23
+- 代理挂了 → auto_run.bat 会重试 3h，周一 10:00 到 13:00
 - 代理端口：7897（Clash Verge）> 7993（UniClash 备用）
 - 周一晚上来工作室 → 情报日做三连问
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒

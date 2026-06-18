@@ -26,7 +26,7 @@ python main.py --report --view
 
 ### 自动任务
 
-Windows 任务计划每周一 10:23 自动执行 `auto_run.bat`（采集 → 存快照 → 出报告）。错过自动补跑，需 Clash 代理在 7897 端口运行。
+Windows 任务计划每周一 10:00 自动执行 `auto_run.bat`（采集 → 存快照 → 出报告）。错过自动补跑，需 Clash 代理在 7897 端口运行。
 
 ## 报告内容
 
