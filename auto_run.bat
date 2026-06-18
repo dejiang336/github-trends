@@ -41,4 +41,5 @@ exit /b 0
 
 :fail
 echo [%date% %time%] 等了3小时代理还不通，放弃了 >> "%LOG%"
+echo %date% %time% > output\CRASH.txt
 exit /b 1
