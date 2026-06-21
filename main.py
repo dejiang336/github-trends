@@ -17,7 +17,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from crawlers.trending import TrendingCrawler
 from crawlers.topics import TopicsCrawler
 from crawlers.awesome import AwesomeDiscoverer
-from crawlers.v2ex import V2EXCrawler
 from store import to_json, auto_filename
 from analyzer import (
     analyze_language_heat, analyze_topic_size,
@@ -34,7 +33,6 @@ def build_parser():
     p.add_argument("--trending", action="store_true", help="仅 Trending")
     p.add_argument("--topics",   action="store_true", help="仅 Topics")
     p.add_argument("--awesome",  action="store_true", help="仅 Awesome")
-    p.add_argument("--v2ex",    action="store_true", help="仅 V2EX")
     p.add_argument("--report",   action="store_true", help="从已存数据生成 HTML 报告")
     p.add_argument("--view",     action="store_true", help="打开浏览器")
     p.add_argument("--save",     action="store_true", help="保存历史快照（自动）")
@@ -47,7 +45,7 @@ def build_parser():
 # ═══════════════════════════════════════════════════════════════
 
 def collect_mode(args):
-    run_all = not any([args.trending, args.topics, args.awesome, args.v2ex])
+    run_all = not any([args.trending, args.topics, args.awesome])
 
     # GitHub token：优先读环境变量，其次读 claude 配置
     token = os.environ.get("GITHUB_TOKEN", "")
@@ -61,7 +59,7 @@ def collect_mode(args):
         except Exception:
             pass
 
-    trending_data, topics_data, awesome_data, v2ex_data = [], [], [], []
+    trending_data, topics_data, awesome_data = [], [], []
 
     if run_all or args.trending:
         print("\n" + "=" * 55)
@@ -87,14 +85,6 @@ def collect_mode(args):
         c = AwesomeDiscoverer(rate_limit=10.0, token=token)
         awesome_data = c.crawl()
         print(f"  → {len(awesome_data)} 个仓库\n")
-
-    if run_all or args.v2ex:
-        print("=" * 55)
-        print("  💬 维度四：中文社区脉搏（V2EX 热门）")
-        print("=" * 55)
-        c = V2EXCrawler(rate_limit=3.0)
-        v2ex_data = c.crawl()
-        print(f"  → {len(v2ex_data)} 条话题\n")
 
     # ── 汇总分析 ──
     lang_heat  = analyze_language_heat(trending_data) if trending_data else {}
@@ -127,7 +117,6 @@ def collect_mode(args):
         "rising_domains": rising,
         "top_trending": top_trending,
         "top_awesome": top_awesome,
-        "v2ex_hot": v2ex_data,
     }
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data_pkg, f, ensure_ascii=False, indent=2)
@@ -256,7 +245,6 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
     rising       = data.get("rising_domains", [])
     top_trending = data.get("top_trending", [])
     top_awesome  = data.get("top_awesome", [])
-    v2ex_hot     = data.get("v2ex_hot", [])
 
     # ── 语言热度（带排名变化箭头） ──
     lang_rows = ""
@@ -281,61 +269,62 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
         delta_str = ""
         if changes and cat in changes.get("topics", {}):
             pct = changes["topics"][cat]
-            color = "#3fb950" if pct > 0 else "#f85149" if pct < 0 else "#8b949e"
-            delta_str = f' <span style="color:{color};font-size:11px;">({pct:+.1f}%)</span>'
+            if abs(pct) > 0.01:  # 增长率接近 0 不显示
+                color = "#3fb950" if pct > 0 else "#f85149"
+                delta_str = f' <span style="color:{color};font-size:11px;">({pct:+.1f}%)</span>'
         topic_rows += (
             f"<tr><td>{esc(cat)}</td><td>{s['total_repos']:,}{delta_str}</td>"
             f"<td>{esc(', '.join(k['kw'] for k in s['keywords'][:3]))}</td></tr>"
         )
 
     # ── 新兴领域 ──
-    rising_rows = "".join(
-        f"<tr><td><a href='{esc(d.get('url',''))}' target='_blank'>{esc(d.get('name',''))}</a></td>"
-        f"<td>{esc(d.get('description',''))[:80]}</td><td>{d.get('stars',0):,}</td>"
-        f"<td>{d.get('stars_per_day',0)}/天</td></tr>"
-        for d in rising[:15]
-    ) or '<tr><td colspan="4" style="color:#8b949e;">暂无数据（Awesome 模块限流或未运行）</td></tr>'
+    has_desc = any(d.get('description','').strip() for d in rising[:15])
+    has_spd  = any(d.get('stars_per_day',0) for d in rising[:15])
+    if not rising:
+        rising_rows = '<tr><td colspan="4" style="color:#8b949e;">暂无数据（Awesome 模块限流或未运行）</td></tr>'
+        rising_headers = "<th>仓库</th><th>描述</th><th>⭐</th><th>日均</th>"
+    else:
+        cols = ["<th>仓库</th>"]
+        if has_desc: cols.append("<th>描述</th>")
+        cols.append("<th>⭐</th>")
+        if has_spd: cols.append("<th>日均</th>")
+        rising_headers = "".join(cols)
+        rising_rows = ""
+        for d in rising[:15]:
+            name = esc(d.get('name',''))
+            url  = esc(d.get('url',''))
+            desc = esc(d.get('description',''))[:100] if has_desc else ""
+            stars = f"{d.get('stars',0):,}"
+            spd   = f"{d.get('stars_per_day',0)}/天" if has_spd else ""
+            rising_rows += (
+                f"<tr><td><a href='{url}' target='_blank'>{name}</a></td>"
+                + (f"<td>{desc}</td>" if has_desc else "")
+                + f"<td>{stars}</td>"
+                + (f"<td>{spd}</td>" if has_spd else "")
+                + "</tr>"
+            )
 
     # ── Trending Top（已去重） ──
     trending_rows = "".join(
         f"<tr><td><a href='{esc(r.get('url',''))}' target='_blank'>{esc(r.get('repo',''))}</a></td>"
-        f"<td>{esc(r.get('description',''))[:80]}</td>"
+        f"<td>{esc(r.get('description',''))[:120]}</td>"
         f"<td>{esc(r.get('language',''))}</td><td>+{r.get('stars_period',0):,}</td></tr>"
         for r in top_trending[:15]
     )
 
-    # ── V2EX 热门（分 tech 和 other） ──
-    TECH_NODES = {"程序员","职场话题","分享创造","分享发现","OpenAI","Apple","投资",
-                  "问与答","求职","奇思妙想","Bitcoin","Android","iOS","前端","后端",
-                  "云计算","机器学习","游戏开发","设计","硬件","创业","外包","远程工作"}
-    tech_topics = [d for d in v2ex_hot if d.get("node","") in TECH_NODES]
-    other_topics = [d for d in v2ex_hot if d.get("node","") not in TECH_NODES]
-
-    def _v2ex_rows(topics, limit=99):
-        rows = ""
-        for d in topics[:limit]:
-            user = esc(d.get("user",""))
-            tag = "<span class='v2ex-promo'>推广</span>" if d.get("node","") == "推广" else ""
-            rows += (
-                f"<tr><td><a href='{esc(d.get('url',''))}' target='_blank'>{esc(d.get('title',''))}</a></td>"
-                f"<td><span class='v2ex-node'>{esc(d.get('node',''))}</span>{tag}</td>"
-                f"<td>{esc(user)}</td><td>{d.get('replies',0)}</td></tr>"
-            )
-        return rows or '<tr><td colspan="4" style="color:#8b949e;">暂无数据</td></tr>'
-
-    v2ex_rows = _v2ex_rows(tech_topics, 15)
-    v2ex_other_rows = _v2ex_rows(other_topics, 10)
-
     # ── AI 洞察 ──
     insights_html = "".join(f"<li>{esc(line)}</li>" for line in insights)
 
-    # ── 历史对比信息 ──
+    # ── 历史对比信息（同一天不显示） ──
     compare_html = ""
     if changes:
-        compare_html = (
-            f'<p style="color:#8b949e;font-size:12px;margin-bottom:16px;">'
-            f'📅 上次采集: {changes["prev_timestamp"]} &nbsp;|&nbsp; ↑↓ 表示排名变化</p>'
-        )
+        curr_ts = data.get('timestamp','')[:10]  # YYYY-MM-DD
+        prev_ts = changes.get("prev_timestamp","")[:10]
+        if prev_ts and prev_ts != curr_ts:
+            compare_html = (
+                f'<p style="color:#8b949e;font-size:12px;margin-bottom:16px;">'
+                f'📅 上次采集: {changes["prev_timestamp"]} &nbsp;|&nbsp; ↑↓ 表示排名变化</p>'
+            )
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -368,9 +357,7 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
                padding:2px 10px; border-radius:10px; margin-left:8px; }}
   .history-badge {{ display:inline-block; background:#1f2a37; color:#8b949e; font-size:11px;
                     padding:2px 8px; border-radius:10px; margin-left:4px; }}
-  .v2ex-node {{ display:inline-block; background:#238636; color:#fff; font-size:10px;
                padding:1px 8px; border-radius:10px; }}
-  .v2ex-promo {{ display:inline-block; background:#f85149; color:#fff; font-size:10px;
                 padding:1px 6px; border-radius:10px; margin-left:4px; }}
 </style>
 </head>
@@ -380,7 +367,7 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
 <p class="meta">
   采集: {data.get('timestamp','')} &nbsp;|&nbsp; 报告: {now}
   <span class="ai-badge">🤖 AI 分析</span>
-  {f'<span class="history-badge">📅 对比: {changes["prev_timestamp"]}</span>' if changes else ''}
+  {f'<span class="history-badge">📅 对比: {changes["prev_timestamp"]}</span>' if (changes and changes.get("prev_timestamp","")[:10] != data.get('timestamp','')[:10]) else ''}
 </p>
 
 {compare_html}
@@ -411,25 +398,13 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
 <div>
 <h2>🆕 新兴领域增速榜</h2>
 <div class="card" style="overflow-x:auto;">
-  <table><thead><tr><th>仓库</th><th>描述</th><th>⭐</th><th>日均</th></tr></thead><tbody>{rising_rows}</tbody></table>
+  <table><thead><tr>{rising_headers}</tr></thead><tbody>{rising_rows}</tbody></table>
 </div>
 </div>
 </div>
 
-<h2>💬 V2EX 技术圈热门</h2>
-<div class="card">
-  <table><thead><tr><th>话题</th><th>节点</th><th>楼主</th><th>回复</th></tr></thead><tbody>{v2ex_rows}</tbody></table>
-  <p style="font-size:11px;color:#8b949e;margin-top:8px;">* 数据来源: v2ex.com · 已过滤推广/生活类节点 · Top 5 热门帖含正文摘要</p>
-</div>
 
-<details style="margin-top:12px;">
-<summary style="color:#8b949e;cursor:pointer;font-size:13px;">📋 其他话题（推广/生活/购物/地域）</summary>
-<div class="card" style="margin-top:8px;">
-  <table><thead><tr><th>话题</th><th>节点</th><th>楼主</th><th>回复</th></tr></thead><tbody>{v2ex_other_rows}</tbody></table>
-</div>
-</details>
-
-<footer>GitHub 技术趋势探测器 © 2026 — 数据: github.com &nbsp;|&nbsp; V2EX &nbsp;|&nbsp; 洞察: Claude AI</footer>
+<footer>GitHub 技术趋势探测器 © 2026 — 数据: github.com  洞察: Claude AI</footer>
 </div>
 </body>
 </html>"""
