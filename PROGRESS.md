@@ -48,3 +48,4 @@ output/snapshots/
 - 周日晚上来工作室 → 情报日做三连问
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
 - 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%
+| W27 | 06.30 | ✅ auto | 1 file | OK |
