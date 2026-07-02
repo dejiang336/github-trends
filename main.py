@@ -9,8 +9,9 @@
     python main.py --save               # 采集并保存历史快照（用于下次对比）
 """
 
-import argparse, logging, sys, os, json, webbrowser, glob as globmod
+import argparse, logging, sys, os, json, webbrowser, glob as globmod, traceback
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -40,6 +41,16 @@ def build_parser():
     return p
 
 
+def _dedup_top(items: list[dict], key: str, sort_by: str, top_n: int = 20) -> list[dict]:
+    """去重后取 Top-N——同 key 只保留 sort_by 最高的。"""
+    deduped = {}
+    for item in items:
+        k = item[key]
+        if k not in deduped or item[sort_by] > deduped[k][sort_by]:
+            deduped[k] = item
+    return sorted(deduped.values(), key=lambda r: r[sort_by], reverse=True)[:top_n]
+
+
 # ═══════════════════════════════════════════════════════════════
 #  采集模式
 # ═══════════════════════════════════════════════════════════════
@@ -65,49 +76,50 @@ def collect_mode(args):
         print("\n" + "=" * 55)
         print("  📈  维度一：编程语言热度（GitHub Trending）")
         print("=" * 55)
-        c = TrendingCrawler(token=token)
-        trending_data = c.crawl()
-        print(f"  → {len(trending_data)} 条\n")
 
     if run_all or args.topics:
         print("=" * 55)
         print("  📊 维度二：技术赛道体量（搜索统计）")
         print("=" * 55)
-        c = TopicsCrawler(rate_limit=10.0, token=token)
-        topics_data = c.crawl()
-        ok = sum(1 for d in topics_data if d["repo_count"] > 0)
-        print(f"  → {ok}/{len(topics_data)} 个主题成功\n")
 
     if run_all or args.awesome:
         print("=" * 55)
         print("  🆕 维度三：新兴领域（Awesome 发现）")
         print("=" * 55)
-        c = AwesomeDiscoverer(rate_limit=10.0, token=token)
-        awesome_data = c.crawl()
-        print(f"  → {len(awesome_data)} 个仓库\n")
+
+    # ── 并行采集（三个爬虫互不依赖） ──
+    if run_all:
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            jobs = {}
+            jobs["trending"] = ex.submit(TrendingCrawler(token=token).crawl)
+            jobs["topics"]   = ex.submit(TopicsCrawler(rate_limit=10.0, token=token).crawl)
+            jobs["awesome"]  = ex.submit(AwesomeDiscoverer(rate_limit=10.0, token=token).crawl)
+            trending_data = jobs["trending"].result()
+            topics_data   = jobs["topics"].result()
+            awesome_data  = jobs["awesome"].result()
+        print(f"\n  → Trending: {len(trending_data)} | Topics: {sum(1 for d in topics_data if d['repo_count']>0)}/{len(topics_data)} | Awesome: {len(awesome_data)}")
+    else:
+        if args.trending:
+            trending_data = TrendingCrawler(token=token).crawl()
+            print(f"  → {len(trending_data)} 条\n")
+        if args.topics:
+            topics_data = TopicsCrawler(rate_limit=10.0, token=token).crawl()
+            ok = sum(1 for d in topics_data if d["repo_count"] > 0)
+            print(f"  → {ok}/{len(topics_data)} 个主题成功\n")
+        if args.awesome:
+            awesome_data = AwesomeDiscoverer(rate_limit=10.0, token=token).crawl()
+            print(f"  → {len(awesome_data)} 个仓库\n")
 
     # ── 汇总分析 ──
     lang_heat  = analyze_language_heat(trending_data) if trending_data else {}
     topic_size = analyze_topic_size(topics_data) if topics_data else {}
     rising     = analyze_rising_domains(awesome_data) if awesome_data else []
 
-    # ── Trending 去重（daily + weekly 同一 repo 只保留 stars_period 最高的） ──
-    deduped = {}
-    for r in trending_data:
-        key = r["repo"]
-        if key not in deduped or r["stars_period"] > deduped[key]["stars_period"]:
-            deduped[key] = r
-    top_trending = sorted(deduped.values(), key=lambda r: r["stars_period"], reverse=True)[:20]
+    # ── 去重 ──
+    top_trending = _dedup_top(trending_data, "repo", "stars_period", 20)
+    top_awesome  = _dedup_top(awesome_data, "name", "stars", 20)
 
-    # ── Awesome 去重 ──
-    awesome_dedup = {}
-    for r in awesome_data:
-        key = r["name"]
-        if key not in awesome_dedup or r["stars"] > awesome_dedup[key]["stars"]:
-            awesome_dedup[key] = r
-    top_awesome = sorted(awesome_dedup.values(), key=lambda r: r["stars"], reverse=True)[:20]
-
-    # ── 存 data JSON ──
+    # ── 存 data JSON（原子写入） ──
     os.makedirs("output", exist_ok=True)
     data_pkg = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -118,8 +130,10 @@ def collect_mode(args):
         "top_trending": top_trending,
         "top_awesome": top_awesome,
     }
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
+    tmp = DATA_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data_pkg, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, DATA_FILE)  # 原子 rename
 
     # ── 保存快照 ──
     if args.save or run_all:
@@ -184,15 +198,15 @@ def report_mode(args):
 
 
 def _load_previous_snapshot() -> dict | None:
-    """加载最近一次的历史快照（非当前这次）。"""
+    """加载上一次的历史快照（跳过最当前这一次）。"""
     files = sorted(globmod.glob(f"{SNAPSHOT_DIR}/data_*.json"), reverse=True)
-    # 跳过当前最新（即 latest_data.json 的同源快照）
-    for f in files:
+    if len(files) < 2:
+        return None
+    # files[0] 是当前采集的快照，取 files[1] 即上一次
+    for f in files[1:]:
         try:
             with open(f, encoding="utf-8") as fh:
-                snap = json.load(fh)
-            # 排除和当前采集时间相同的快照
-            return snap
+                return json.load(fh)
         except Exception:
             continue
     return None
@@ -357,8 +371,6 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
                padding:2px 10px; border-radius:10px; margin-left:8px; }}
   .history-badge {{ display:inline-block; background:#1f2a37; color:#8b949e; font-size:11px;
                     padding:2px 8px; border-radius:10px; margin-left:4px; }}
-               padding:1px 8px; border-radius:10px; }}
-                padding:1px 6px; border-radius:10px; margin-left:4px; }}
 </style>
 </head>
 <body>
@@ -427,10 +439,21 @@ def main():
         format="%(asctime)s | %(levelname)-7s | %(message)s",
         datefmt="%H:%M:%S",
     )
-    if args.report:
-        report_mode(args)
-    else:
-        collect_mode(args)
+    crash_file = "output/CRASH.txt"
+    try:
+        if args.report:
+            report_mode(args)
+        else:
+            collect_mode(args)
+        # 采集/报告成功后清除上次崩溃标记
+        if os.path.exists(crash_file):
+            os.remove(crash_file)
+    except Exception:
+        os.makedirs("output", exist_ok=True)
+        with open(crash_file, "w", encoding="utf-8") as f:
+            f.write(f"{datetime.now()}\n{traceback.format_exc()}")
+        print(f"\n❌ 写入 {crash_file} — 请检查并手动补跑", file=sys.stderr)
+        raise
 
 
 if __name__ == "__main__":

@@ -87,8 +87,6 @@ class TrendingCrawler(BaseCrawler):
 
     @staticmethod
     def _number(s: str) -> int:
-        s = s.replace(",", "").replace(".", "")
-        try:
-            return int(s)
-        except ValueError:
-            return 0
+        # 已委托给 base.parse_number，保留方法名兼容
+        from crawlers.base import parse_number
+        return parse_number(s)

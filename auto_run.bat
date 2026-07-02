@@ -9,13 +9,13 @@ ping -n 30 127.0.0.1 >nul
 :: Retry loop: 36 tries (first 6 every 30s, rest every 5min = max ~2.5h)
 set RETRY=0
 :check_proxy
-D:\Git\mingw64\bin\curl.exe -s -o nul --connect-timeout 3 -x http://127.0.0.1:7897 https://github.com
+curl -s -o nul --connect-timeout 3 -x http://127.0.0.1:7897 https://github.com
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7897
     set HTTPS_PROXY=http://127.0.0.1:7897
     goto run
 )
-D:\Git\mingw64\bin\curl.exe -s -o nul --connect-timeout 3 -x http://127.0.0.1:7993 https://github.com
+curl -s -o nul --connect-timeout 3 -x http://127.0.0.1:7993 https://github.com
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7993
     set HTTPS_PROXY=http://127.0.0.1:7993
@@ -36,7 +36,7 @@ goto check_proxy
 python main.py --save >> "%LOG%" 2>&1
 python main.py --report >> "%LOG%" 2>&1
 echo Done at %date% %time% >> "%LOG%"
-python -c "from datetime import date; w=date.today().isocalendar(); print(f'| W{w.week} | {date.today().strftime(\"%%m.%%d\")} | ✅ auto | 1 file | OK |', file=open('PROGRESS.md','a'))" >> "%LOG%" 2>&1
+python -c "from datetime import date; w=date.today().isocalendar(); print(f'    | W{w.week} | {date.today().strftime(\"%%m.%%d\")} | ✅ auto | 1 file | OK |', file=open('PROGRESS.md','a'))" >> "%LOG%" 2>&1
 exit /b 0
 
 :fail

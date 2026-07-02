@@ -1,9 +1,10 @@
 """
-爬虫基类 — 限速、重试、UA 伪装、GitHub API + 页面抓取。
+爬虫基类 — 限速、重试、UA 伪装、GitHub API + 页面抓取、共享工具函数。
 """
 import time
 import random
 import os
+import re
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -11,6 +12,24 @@ import requests
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+
+def parse_number(s: str) -> int:
+    """将 '1.5k' / '2,300' / '1,234' 等人类可读数字转为 int。"""
+    s = str(s).strip().lower()
+    if not s:
+        return 0
+    s = s.replace(",", "")
+    m = re.match(r"([\d.]+)\s*(k|m)?", s)
+    if not m:
+        return 0
+    val = float(m.group(1))
+    suffix = m.group(2)
+    if suffix == "k":
+        return int(val * 1000)
+    elif suffix == "m":
+        return int(val * 1_000_000)
+    return int(val)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",

@@ -49,12 +49,5 @@ class TopicsCrawler(BaseCrawler):
 
     @staticmethod
     def _parse(s: str) -> int:
-        s = s.strip().lower().replace(",", "")
-        if s.endswith("k"):
-            return int(float(s[:-1]) * 1000)
-        if s.endswith("m"):
-            return int(float(s[:-1]) * 1_000_000)
-        try:
-            return int(s)
-        except ValueError:
-            return 0
+        from crawlers.base import parse_number
+        return parse_number(s)

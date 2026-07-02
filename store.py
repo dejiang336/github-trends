@@ -1,8 +1,7 @@
 """
-数据存储 — JSON / CSV / 趋势报告 HTML 导出。
+数据存储 — JSON / 趋势报告 HTML 导出。
 """
 import json
-import csv
 import os
 from datetime import datetime
 
