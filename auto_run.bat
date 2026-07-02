@@ -2,6 +2,11 @@
 set LOG=C:\Users\jd\Desktop\github-trends\output\auto_log.txt
 cd /d C:\Users\jd\Desktop\github-trends
 
+:: 日志旋转：保留最近 300 行
+if exist "%LOG%" (
+    powershell -Command "Get-Content '%LOG%' -Tail 300 | Set-Content '%LOG%'" >nul 2>&1
+)
+
 :: Wait 30s for proxy init
 echo [%date% %time%] Waiting for proxy... >> "%LOG%"
 ping -n 30 127.0.0.1 >nul
