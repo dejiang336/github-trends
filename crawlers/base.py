@@ -76,8 +76,15 @@ class BaseCrawler(ABC):
                 return resp
             except requests.RequestException as e:
                 logger.warning("[%s] 请求失败 (%d/%d): %s", self.name, attempt, self.max_retries, e)
+                wait = 2 ** attempt + random.uniform(0, 1)
+                # 如果是 429，优先用 GitHub 的 Retry-After 头
+                if hasattr(e, 'response') and e.response is not None and e.response.status_code == 429:
+                    retry_after = e.response.headers.get("Retry-After", "")
+                    if retry_after.isdigit():
+                        wait = int(retry_after)
+                        logger.warning("[%s] 429 限流，Retry-After: %ss", self.name, wait)
                 if attempt < self.max_retries:
-                    time.sleep(2 ** attempt + random.uniform(0, 1))
+                    time.sleep(wait)
         return None
 
     def soup(self, url: str, **kwargs) -> Optional[BeautifulSoup]:
