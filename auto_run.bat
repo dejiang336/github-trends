@@ -14,16 +14,18 @@ ping -n 30 127.0.0.1 >nul
 :: Retry loop: 36 tries (first 6 every 30s, rest every 5min = max ~2.5h)
 set RETRY=0
 :check_proxy
-curl -s -o nul --connect-timeout 3 -x http://127.0.0.1:7897 https://github.com
+powershell -NoProfile -Command "(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',7897)" >nul 2>&1
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7897
     set HTTPS_PROXY=http://127.0.0.1:7897
+    echo [%date% %time%] Proxy 7897 ready, starting crawl... >> "%LOG%"
     goto run
 )
-curl -s -o nul --connect-timeout 3 -x http://127.0.0.1:7993 https://github.com
+powershell -NoProfile -Command "(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',7993)" >nul 2>&1
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7993
     set HTTPS_PROXY=http://127.0.0.1:7993
+    echo [%date% %time%] Proxy 7993 ready, starting crawl... >> "%LOG%"
     goto run
 )
 set /a RETRY+=1
