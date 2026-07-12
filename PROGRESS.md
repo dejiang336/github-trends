@@ -49,3 +49,4 @@ output/snapshots/
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
 - 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%
 | W27 | 06.30 | ✅ auto | 1 file | OK |
+    | W28 | 07.12 | �?auto | 1 file | OK |
