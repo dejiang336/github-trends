@@ -13,6 +13,7 @@
 | GitHub Trending 爬虫 | ✅ | 2026.6.5 |
 | Topics 赛道体量 | ✅ | 2026.6.5 |
 | Awesome 新兴领域 | ✅ | 2026.6.5 |
+| Awesome 增速榜修复（created: 限定 + 星速排序） | ✅ | 2026.7.12 |
 | Token 代理自动读取 | ✅ | 2026.6.9 |
 | 中文 HTML 报告 | ✅ | 2026.6.9 |
 | AI 趋势洞察 | ✅ | 2026.6.9 |
@@ -49,4 +50,4 @@ output/snapshots/
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
 - 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%
 | W27 | 06.30 | ✅ auto | 1 file | OK |
-    | W28 | 07.12 | �?auto | 1 file | OK |
+    | W28 | 07.12 | �?auto | 1 file | OK |
