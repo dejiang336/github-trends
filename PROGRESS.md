@@ -51,3 +51,4 @@ output/snapshots/
 - 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%
 | W27 | 06.30 | ✅ auto | 1 file | OK |
     | W28 | 07.12 | �?auto | 1 file | OK |
+    | W29 | 07.19 | �?auto | 1 file | OK |
