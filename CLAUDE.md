@@ -27,7 +27,7 @@
 ### 情报日流程
 
 **-1. 先读 PROGRESS + 上周 insights**
-`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` ——确认当前轮转周、上次分析结论、季度深度是否到期。写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
+`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` ——确认当前轮转周、上次分析结论、季度深度是否到期。**如果是 W2 或 W4：今天有覆盖检查，情报日结束后开 Explore Agent 查。** 写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
 
 **0. CRASH 自检**
 ```bash
