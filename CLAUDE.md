@@ -59,6 +59,14 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent 做覆盖检查（不�
 
 每次 15 分钟，结果写入 insights.json。写入前先备份：`cp output/insights.json output/insights/insights_W{N}_{YYYYMMDD}.json`。
 
+**情报日收尾自检清单（每周都做，不等提醒）：**
+- [ ] Last30Days PROGRESS → 周轮转表已更新
+- [ ] github-trends PROGRESS → 运行记录 + 快照列表已更新
+- [ ] insights.json → 已备份到 insights/ 目录
+- [ ] HTML 报告 → 已生成
+- [ ] 两个仓库 → 已 push
+- [ ] 本次会话有无代码改动未记录到 PROGRESS？
+
 **注意：执行层面的覆盖（数据缺口、漏扫、来源多样性）由临时研究窗口负责，工作室只管思考质量。W2/W4 情报日结束后两边各自跑覆盖检查，临时窗口结果发给工作室，在下次情报日（W3/W1）三连问前过一遍——有执行缺口优先补，有思考盲点下周期调整方向。同一个错误不超过一次。**
 
 ---
@@ -74,12 +82,3 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent 做覆盖检查（不�
 
 B站/知乎搜索词见 `Desktop/Last30Days/CLAUDE.md`（临时研究窗口执行）。
 
-## 每月月末回顾
-
-每月最后一天（或最后一个周日），花 15 分钟翻一遍所有 PROGRESS：
-1. **洛谷**：本月 AC 数、新坑类型、下月侧重方向
-2. **英语**：本月新词数、累计、造句数、翻车模式变化
-3. **github-trends**：本月 insights.json，趋势是否延续
-4. **Last30Days**：四周围绕是否完整、是否有漏扫方向
-
-结论写到 PROGRESS.md 月度总结栏。
