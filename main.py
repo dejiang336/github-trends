@@ -290,9 +290,17 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
             if abs(pct) > 0.01:  # 增长率接近 0 不显示
                 color = "#3fb950" if pct > 0 else "#f85149"
                 delta_str = f' <span style="color:{color};font-size:11px;">({pct:+.1f}%)</span>'
+        kw_parts = []
+        for k in s['keywords'][:3]:
+            kw = k['kw']
+            if k.get('count', 0) < 0:
+                kw += ' <span style="color:#f85149;font-size:10px;">⚠采集失败</span>'
+            else:
+                kw += f' <span style="color:#8b949e;font-size:10px;">({k[\"count\"]:,})</span>'
+            kw_parts.append(kw)
         topic_rows += (
             f"<tr><td>{esc(cat)}</td><td>{s['total_repos']:,}{delta_str}</td>"
-            f"<td>{esc(', '.join(k['kw'] for k in s['keywords'][:3]))}</td></tr>"
+            f"<td>{', '.join(kw_parts)}</td></tr>"
         )
 
     # ── 新兴领域 ──

@@ -41,10 +41,10 @@ class TopicsCrawler(BaseCrawler):
             "q": query, "type": "repositories",
         })
         if resp is None:
-            return 0
+            return -1  # 请求失败，不是零结果
         m = re.search(r'([\d,]+[km]?)\s*results?\b', resp.text, re.IGNORECASE)
         if not m:
-            return 0
+            return -1  # 解析失败/反爬页面，不是零结果
         return self._parse(m.group(1))
 
     @staticmethod

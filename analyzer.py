@@ -48,16 +48,18 @@ def analyze_language_heat(trending_data: list[dict]) -> dict:
 # ── 2. 赛道体量分析 ────────────────────────────────────────────
 
 def analyze_topic_size(topics_data: list[dict]) -> dict:
-    """按类别汇总仓库数，排出最大赛道。"""
+    """按类别汇总仓库数，排出最大赛道。跳过采集失败（repo_count = -1）的关键词。"""
     cat_stats = {}
     for t in topics_data:
         cat = t.get("category", "Other")
+        count = t.get("repo_count", 0)
         if cat not in cat_stats:
             cat_stats[cat] = {"total_repos": 0, "keywords": []}
-        cat_stats[cat]["total_repos"] += t.get("repo_count", 0)
+        if count >= 0:
+            cat_stats[cat]["total_repos"] += count
         cat_stats[cat]["keywords"].append({
             "kw": t.get("keyword", ""),
-            "count": t.get("repo_count", 0),
+            "count": count,
         })
 
     return dict(
