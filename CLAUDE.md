@@ -12,7 +12,8 @@
 - Clash 7897（首选）/ UniClash 7993（备用）
 
 ## 规则
-- 改爬虫代码 → 自动更新 `PROGRESS.md`
+- 改爬虫代码 → 自动更新 `PROGRESS.md` 功能清单
+- **每次情报日收尾 → 更新 `PROGRESS.md` 每周运行记录 + 数据快照（不等提醒）**
 - 推送前 `git status --short --branch` 确认
 - 攒到自然节点再 push，不每改一行就推
 - 不在工作室窗口跑 /last30days（用临时研究窗口）
@@ -36,7 +37,7 @@ ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了
 
 **1. 派任务给临时研究窗口**
 - 社区脉搏 `/last30days`（英文引擎，按周轮转表选话题）
-- 中文扫描 B站 + 知乎
+- 中文扫描 B站(bili-cli) + 知乎(zhihu-cli，详见 `available-skills` 记忆)
 - AI 政策雷达
 
 **2. 三连问**（工作室提炼进 insights.json）：
@@ -45,7 +46,9 @@ ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了
   2. 什么在熄火——正常波动还是趋势反转
   3. 你应该关心但还没在雷达上的
 
-**3. 更新 PROGRESS.md** 周轮转表（日期+来源+关键发现+已发工作室）
+**3. 更新两个 PROGRESS.md**
+- `Desktop/Last30Days/PROGRESS.md` → 周轮转表（日期+来源+关键发现+已发工作室）
+- `Desktop/github-trends/PROGRESS.md` → 每周运行记录 + 数据快照列表
 
 **4. 编排覆盖检查（W2、W4 结束后触发，开子代理）**
 W2 过半 + W4 完整周期结束时，开 Explore Agent 做覆盖检查（不能自己检查）：
