@@ -71,7 +71,7 @@ class BaseCrawler(ABC):
         for attempt in range(1, self.max_retries + 1):
             try:
                 self._wait()
-                resp = self.session.get(url, headers=headers, timeout=30, **kwargs)
+                resp = self.session.get(url, headers=headers, timeout=(8, 25), **kwargs)
                 resp.raise_for_status()
                 return resp
             except requests.RequestException as e:
