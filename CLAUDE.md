@@ -87,9 +87,9 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent 做覆盖检查（不�
 
 | 周 | 方向 | /last30days 搜索词 |
 |----|------|-------------------|
-| 1 | 工具生态 | 英文: `Claude Code vs Codex vs Cursor vs Hermes` · 中文: `Kimi CLI vs Trae vs WorkBuddy vs Qoder 国产AI编程` |
-| 2 | 就业市场 | `CS graduate job market AI coding entry level 2026` |
-| 3 | 技术方向 | `C++ embedded systems autonomous driving computer vision hiring` |
+| 1 | 工具生态 | 英文: `Claude Code vs Codex vs Cursor vs Hermes` · 中文: `Kimi CLI vs Trae vs WorkBuddy vs Qoder 国产AI编程` · 跨周追踪: Agent Skills 星数变化（VoltAgent 合集+新增项目） |
+| 2 | 就业市场 | `CS graduate job market AI coding entry level 2026` · **加雇主/HR 视角：简历筛选第一轮看什么？** |
+| 3 | 技术方向 | `C++ embedded systems autonomous driving computer vision AI compiler infrastructure hiring` |
 | 4 | 开源模型 | `DeepSeek open source models vs proprietary frontier 2026` |
 
 B站/知乎搜索词见 `Desktop/Last30Days/CLAUDE.md`（临时研究窗口执行）。
