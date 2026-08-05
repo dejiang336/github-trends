@@ -10,6 +10,50 @@
 
 ## 代理
 - Clash 7897（首选）/ UniClash 7993（备用）
+- 启动阶段：`auto_run.bat` TCP 端口检测，选通的启动，设 `HTTP_PROXY_BACKUP` 为另一个端口
+- 运行阶段：Python 层自动 fallback——主代理 ConnectionError/SSLError/ConnectTimeout → 切备用
+- 不用 ReadTimeout 触发切代理（那是 GitHub 慢，换代理没用）
+
+## 修复记录
+
+**⚠️ 如果环境重装或代码回退，按此清单恢复。所有修复在 Windows + Python 3.14 环境。**
+
+### 2026.7.2 重构
+
+| # | 文件 | 修复内容 |
+|------|------|------|
+| 1 | `crawlers/base.py` | `parse_number()` 统一——trending/topics/awesome 三个文件不再各自实现 |
+| 2 | `main.py` | `_dedup_top()`——Trending 和 Awesome 的去重逻辑合并 |
+| 3 | `main.py` | 三个爬虫改为 `ThreadPoolExecutor` 并行采集 |
+| 4 | `main.py` | CRASH.txt 现在 Python 异常也会写入（try/except/traceback） |
+| 5 | `main.py` | 文件写入改为原子操作——先写 `.tmp` 再 `os.replace()` |
+| 6 | `main.py` | `_load_previous_snapshot()` 修复——`files[1:]` 跳过当前快照 |
+| 7 | `auto_run.bat` | curl 改用 PATH 查找、PROGRESS 追加格式对齐、日志保留最近 300 行 |
+| 8 | `crawlers/base.py` | 429 响应使用 GitHub Retry-After 头 |
+| 9 | `store.py` | 删除未使用的 `import csv` |
+
+### 2026.7.12 Awesome 新兴领域修复
+
+| # | 文件 | 修复内容 |
+|------|------|------|
+| 10 | `crawlers/awesome.py` | 重写——搜索从 `stars:>N` 改为 `created:>{365天前}` + `stars:>10`，限定最近一年新建仓库 |
+| 11 | `crawlers/awesome.py` | 从搜索页解析相对时间标签（"2 days ago"/"last week"等），估算创建天数 |
+| 12 | `crawlers/awesome.py` | 排序从总星数降序→`stars_per_day` 星速降序（`stars / max(days, 1)`），真增速榜 |
+| 13 | `crawlers/awesome.py` | 查询精简——`awesome-2025/2026` 年份标签改为直接 `created:` 过滤，年份无关 |
+| 14 | `crawlers/awesome.py` | `_make_repo()` 统一封装——stars_per_day/days_old 在构造时计算 |
+
+**回退检查：** 如果 Awesome 榜又显示老面孔（build-your-own-x 等）→ 检查 `CREATED_SINCE` 是否过期；如果星速全为 0 → 检查相对时间解析是否匹配页面新结构。
+
+### 2026.8.2 Python 层代理 fallback
+
+| # | 文件 | 修复内容 |
+|------|------|------|
+| 15 | `crawlers/base.py` | `get()` 重写为 while 循环——主代理 `max_retries` 次失败后自动切备用，`_is_proxy_error()` 只匹配 ConnectionError/SSLError/ConnectTimeout（不含 ReadTimeout） |
+| 16 | `auto_run.bat` | 设 `HTTP_PROXY_BACKUP` 环境变量（主 7897→备 7993，反之亦然），Python 层可读到备用地址 |
+| 17 | `crawlers/base.py` | `BaseCrawler.__init__()` 新增 `backup_proxy` 参数 + `HTTP_PROXY_BACKUP` 环境变量读取 |
+| 18 | `main.py` | f-string `\"` 转义改为直接 `"`（Python 3.12+ 弃用 f-string 内反斜杠） |
+
+**回退检查：** 如果爬虫代理挂了还在傻等 → 检查 `HTTP_PROXY_BACKUP` 是否已设、`_is_proxy_error()` 异常类型是否匹配。
 
 ## 规则
 - 改爬虫代码 → 自动更新 `PROGRESS.md` 功能清单
@@ -26,8 +70,8 @@
 
 ### 情报日流程
 
-**-1. 先读 PROGRESS + 上周 insights**
-`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` ——确认当前轮转周、上次分析结论、季度深度是否到期。**如果是 W2 或 W4：今天有覆盖检查，情报日结束后开 Explore Agent 查。** 写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
+**-1. 先读 PROGRESS + 上周 insights + 查快照**
+`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` + `ls output/snapshots/` 最新文件日期——确认当前轮转周、上次分析结论、季度深度是否到期。**如果最新快照 ≤ 2 天 → 爬虫已跑，直接用现有数据，不要重跑浪费限额。如果是 W2 或 W4：今天有覆盖检查，情报日结束后开 Explore Agent（显式指定 opus）查。** 写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
 
 **0. CRASH 自检**
 ```bash
@@ -52,7 +96,7 @@ ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了
 - `Desktop/github-trends/PROGRESS.md` → 每周运行记录 + 数据快照列表
 
 **4. 编排覆盖检查（W2、W4 结束后触发，开子代理）**
-W2 过半 + W4 完整周期结束时，开 Explore Agent 做覆盖检查（不能自己检查）：
+W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**，判断型任务用 Pro，不继承主会话）做覆盖检查（不能自己检查）：
 - 四周 insights.json 结论是否连贯，有无前后矛盾？
 - 三连问解读角度是否单一——是否每次都落在"你的路线是对的"？反向压力测试（什么情况下推荐会错？）做了吗？
 - 有没有应该关心但四周都没覆盖到的盲点？

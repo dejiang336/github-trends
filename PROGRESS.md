@@ -33,9 +33,13 @@
 | 日志旋转（保留最近 300 行） | ✅ | 2026.7.2 |
 | GBK emoji 编码修复 | ✅ | 2026.7.12 |
 | auto_run.bat TCP 端口检测（替代 curl HTTPS） | ✅ | 2026.7.12 |
+| Trending rate_limit 对齐 10s（防止并行时超额） | ✅ | 2026.8.5 |
+| 代理预检（爬虫启动前测 GitHub 连通性，不通直接退出） | ✅ | 2026.8.5 |
 | SSL 超时拆分（connect=8s read=25s，防止 SSL EOF 卡死） | ✅ | 2026.7.26 |
 | Topics 采集失败标记（-1 替代 0，避免限流空结果被当真实数据） | ✅ | 2026.7.26 |
 | 报告关键词显示具体数量 + 采集失败红色标记 | ✅ | 2026.7.26 |
+| Python 层代理 fallback（主代理失败自动切备用，ConnectionError/SSLError/ConnectTimeout 触发） | ✅ | 2026.8.2 |
+| f-string `\"` 兼容修复（Python 3.12+ 已弃用） | ✅ | 2026.8.2 |
 
 ## 每周运行记录
 
@@ -49,6 +53,7 @@
 | W6 | 7.12 | ✅ auto | 1份 | --report GBK 崩溃手动补跑，已修 |
 | W7 | 7.19 | ✅ auto | 1份 | OK |
 | W8 | 7.26 | ⚠️ 手动补跑 | 1份 | 自动任务 SSL 卡死，手动补跑。已修：timeout (8,25) |
+| W9 | 8.2 | ⚠️ 代理失败 → 8.3 手动补跑 | 1份 | auto 未完成（代理不通），次日手动补跑成功。已修：Python 层代理 fallback + f-string 兼容修复 |
 
 ## 数据快照
 
@@ -67,8 +72,8 @@ output/snapshots/
 
 ## 维护备忘
 
-- 代理挂了 → auto_run.bat 会重试 3h，周日 10:00 到 13:00
-- 代理端口：7897（Clash Verge）> 7993（UniClash 备用）
+- 代理挂了 → auto_run.bat 重试 3h（启动阶段）；Python 层自动切备用（运行阶段）
+- 代理端口：7897（Clash Verge 首选）→ 7993（UniClash 备用），Python 通过 HTTP_PROXY_BACKUP 知道备用地址
 - 周日晚上来工作室 → 情报日做三连问
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
 - 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%

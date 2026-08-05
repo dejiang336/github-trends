@@ -74,6 +74,17 @@ def collect_mode(args):
         except Exception:
             pass
 
+    # ── 代理预检（防止代理挂了浪费 GitHub 限额） ──
+    proxy = os.environ.get("HTTP_PROXY", "") or os.environ.get("http_proxy", "")
+    if proxy and run_all:
+        import urllib.request
+        try:
+            urllib.request.urlopen("https://github.com", timeout=5)
+        except Exception:
+            print("❌ 代理不通，放弃采集（避免浪费 GitHub 限额）。检查 Clash 后再试。")
+            sys.exit(1)
+        print("✅ 代理 OK")
+
     trending_data, topics_data, awesome_data = [], [], []
 
     if run_all or args.trending:
@@ -95,7 +106,7 @@ def collect_mode(args):
     if run_all:
         with ThreadPoolExecutor(max_workers=3) as ex:
             jobs = {}
-            jobs["trending"] = ex.submit(TrendingCrawler(token=token).crawl)
+            jobs["trending"] = ex.submit(TrendingCrawler(rate_limit=10.0, token=token).crawl)
             jobs["topics"]   = ex.submit(TopicsCrawler(rate_limit=10.0, token=token).crawl)
             jobs["awesome"]  = ex.submit(AwesomeDiscoverer(rate_limit=10.0, token=token).crawl)
             trending_data = jobs["trending"].result()
@@ -296,7 +307,7 @@ def build_html_report(data: dict, insights: list[str], changes: dict | None = No
             if k.get('count', 0) < 0:
                 kw += ' <span style="color:#f85149;font-size:10px;">⚠采集失败</span>'
             else:
-                kw += f' <span style="color:#8b949e;font-size:10px;">({k[\"count\"]:,})</span>'
+                kw += f' <span style="color:#8b949e;font-size:10px;">({k["count"]:,})</span>'
             kw_parts.append(kw)
         topic_rows += (
             f"<tr><td>{esc(cat)}</td><td>{s['total_repos']:,}{delta_str}</td>"
