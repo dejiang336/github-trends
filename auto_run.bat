@@ -18,6 +18,7 @@ powershell -NoProfile -Command "(New-Object Net.Sockets.TcpClient).Connect('127.
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7897
     set HTTPS_PROXY=http://127.0.0.1:7897
+    set HTTP_PROXY_BACKUP=http://127.0.0.1:7993
     echo [%date% %time%] Proxy 7897 ready, starting crawl... >> "%LOG%"
     goto run
 )
@@ -25,6 +26,7 @@ powershell -NoProfile -Command "(New-Object Net.Sockets.TcpClient).Connect('127.
 if %errorlevel%==0 (
     set HTTP_PROXY=http://127.0.0.1:7993
     set HTTPS_PROXY=http://127.0.0.1:7993
+    set HTTP_PROXY_BACKUP=http://127.0.0.1:7897
     echo [%date% %time%] Proxy 7993 ready, starting crawl... >> "%LOG%"
     goto run
 )
@@ -35,7 +37,8 @@ if %RETRY% leq 6 (
     ping -n 30 127.0.0.1 >nul
 ) else (
     echo [%date% %time%] Proxy not ready, retry in 5min (%RETRY%/36) >> "%LOG%"
-    ping -n 300 127.0.0.1 >nul
+    if %RETRY%==7 (powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; \$n = New-Object System.Windows.Forms.NotifyIcon; \$n.Icon = [System.Drawing.SystemIcons]::Warning; \$n.BalloonTipTitle = 'GitHub-Trends 爬虫告警'; \$n.BalloonTipText = '代理 7897/7993 均不可用，已重试 3 分钟。请检查 Clash'; \$n.Visible = \$true; \$n.ShowBalloonTip(15000)" >nul 2>&1)
+ping -n 300 127.0.0.1 >nul
 )
 goto check_proxy
 
