@@ -1,11 +1,9 @@
 """
-GitHub Topics 趋势探测 — 从 HTML 搜索页面提取仓库数量。
-限流规避: 精选关键词 + 大间隔 + 单次会话复用。
+GitHub Topics 趋势探测 — 用搜索 API 获取仓库数量（token 认证，30次/分）。
 """
-import re
 from crawlers.base import BaseCrawler, logger
 
-# 精选核心关键词（减少查询量，避免 429）
+# 精选核心关键词（减少查询量，避免限流）
 TOPICS = {
     "AI/大模型":     ["llm", "agent", "rag"],
     "云原生":        ["kubernetes", "docker"],
@@ -20,7 +18,7 @@ TOPICS = {
 
 class TopicsCrawler(BaseCrawler):
     name = "topics"
-    SEARCH_URL = "https://github.com/search"
+    SEARCH_URL = "https://api.github.com/search/repositories"
 
     def crawl(self) -> list[dict]:
         results = []
@@ -32,22 +30,12 @@ class TopicsCrawler(BaseCrawler):
                     "keyword": kw,
                     "repo_count": count,
                 })
-                status = f"{count:,}" if count else "限流"
+                status = f"{count:,}" if count >= 0 else "限流/失败"
                 logger.info("[topics] %-12s | %-18s | %s repos", category, kw, status)
         return results
 
     def _search_count(self, query: str) -> int:
-        resp = self.get(self.SEARCH_URL, params={
-            "q": query, "type": "repositories",
-        })
-        if resp is None:
+        data = self.api_get(self.SEARCH_URL, params={"q": query, "per_page": 1})
+        if data is None:
             return -1  # 请求失败，不是零结果
-        m = re.search(r'([\d,]+[km]?)\s*results?\b', resp.text, re.IGNORECASE)
-        if not m:
-            return -1  # 解析失败/反爬页面，不是零结果
-        return self._parse(m.group(1))
-
-    @staticmethod
-    def _parse(s: str) -> int:
-        from crawlers.base import parse_number
-        return parse_number(s)
+        return data.get("total_count", -1)
