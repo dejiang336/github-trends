@@ -104,14 +104,16 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 
 **固定盲点扫描项（每次覆盖检查必过）：**
 - Rust vs C++ 相对增速——Rust 是否在系统性侵蚀 C++ 地盘？
-- Java 冰点假设——是否用实际就业数据验证过，还是每次都在重复同一句？
-- 国产工具→就业——工具成熟度变化是否反映了面试市场对技能要求的变化？
-- 雇主/HR 视角——分析是站在开发者侧还是用人侧？
-- 爬虫数据质量——Topics 是否有 -1 采集失败？docker 是否仍然异常 5M？数据异常是否已被标记而非当真实数据写入 insights？
+- Java 冰点假设——要么用一次真实就业数据验证「企业不在 GitHub」假设，要么降级为不追踪项。禁止每轮重复同一句不验证。
+- 国产工具→就业——工具成熟度变化是否落到「面试 JD 技能要求变化」，不只停在「你是安全网」。
+- 雇主/HR 视角——W2 必须回答「HR 第一轮筛简历的具体标准是什么」，不许空转。
+- 爬虫数据质量——Topics 是否有 -1？数据异常是否被标记而非当真实写入？
+- **Agent Skills 泡沫信号**——四周只庆祝增长，必须问「会不会像 prompt 工程一样消退？拥挤度到哪了？」（补一个反向指标，不只追星数）。
+- **开源基础设施下沉**——Agent memory / 推理引擎 / 云环境是否在持续出现（W4 首现，后续追踪）。
 
 **跨周写作规则（每期执行）：**
-- 三连问最后一条改为"什么情况下本周核心推荐是错的？"——强制反向压力测试，一句话即可。
-- 引用标签统一：同轮引用用"上周 W{N} 回顾"，跨轮引用用"上月 W{N} 回顾"。
+- 三连问最后一条反向压力测试：**必须直接攻击本周核心结论**（如「如果 AI 也能写安全 C++，系统编程还难替代吗」），不许只挂尾部风险（如 16% 封禁概率）。
+- 引用标签统一：同轮引用用"上周 W{N} 回顾"，跨轮引用用"上月 W{N} 回顾"。写前核对数字归属哪一周（W4 曾把本轮 W2 的 Rust 135% 误归因到上月 W4）。
 - 分离"对你"和"对路线"——操作建议和战略修正不要混在同一段。
 
 每次 15 分钟，结果写入 insights.json。写入前先备份：`cp output/insights.json output/insights/insights_W{N}_{YYYYMMDD}.json`。
@@ -133,9 +135,9 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 | 周 | 方向 | /last30days 搜索词 |
 |----|------|-------------------|
 | 1 | 工具生态 | 英文: `Claude Code vs Codex vs Cursor vs Hermes` · 中文: `Kimi CLI vs Trae vs WorkBuddy vs Qoder 国产AI编程` · 跨周追踪: Agent Skills 星数变化（VoltAgent 合集+新增项目） |
-| 2 | 就业市场 | `CS graduate job market AI coding entry level 2026` · **加雇主/HR 视角：简历筛选第一轮看什么？** |
-| 3 | 技术方向 | `C++ embedded systems autonomous driving computer vision AI compiler infrastructure hiring` |
-| 4 | 开源模型 | `DeepSeek open source models vs proprietary frontier 2026` |
+| 2 | 就业市场 | `CS graduate job market AI coding entry level 2026` · **落到具体标准：HR 第一轮筛简历看什么（不空转）+ 国产工具成熟度 → 面试 JD 技能要求变化** |
+| 3 | 技术方向 | `C++ systems programming career backend infrastructure hiring 2026` · 分向: `embedded software jobs` / `autonomous driving robotics C++` / `AI compiler infrastructure` |
+| 4 | 开源模型 | `DeepSeek open source models vs proprietary frontier 2026` · 追踪: 参数效率（QwQ 3B激活追平671B类信号）+ 开源基础设施下沉（记忆/推理引擎/云环境） |
 
 B站/知乎搜索词见 `Desktop/Last30Days/CLAUDE.md`（临时研究窗口执行）。
 
