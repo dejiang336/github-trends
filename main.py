@@ -9,7 +9,7 @@
     python main.py --save               # 采集并保存历史快照（用于下次对比）
 """
 
-import argparse, logging, sys, os, json, webbrowser, glob as globmod, traceback
+import argparse, logging, sys, os, json, time, webbrowser, glob as globmod, traceback
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -74,14 +74,14 @@ def collect_mode(args):
         except Exception:
             pass
 
-    # ── 代理预检（防止代理挂了浪费 GitHub 限额） ──
+    # ── 代理预检（测代理连通性，不碰 GitHub——不消耗限额） ──
     proxy = os.environ.get("HTTP_PROXY", "") or os.environ.get("http_proxy", "")
     if proxy and run_all:
         import urllib.request
         try:
-            urllib.request.urlopen("https://github.com", timeout=5)
+            urllib.request.urlopen("https://www.baidu.com", timeout=5)
         except Exception:
-            print("❌ 代理不通，放弃采集（避免浪费 GitHub 限额）。检查 Clash 后再试。")
+            print("❌ 代理不通，放弃采集。检查 Clash 后再试。")
             sys.exit(1)
         print("✅ 代理 OK")
 
@@ -107,7 +107,9 @@ def collect_mode(args):
         with ThreadPoolExecutor(max_workers=3) as ex:
             jobs = {}
             jobs["trending"] = ex.submit(TrendingCrawler(rate_limit=10.0, token=token).crawl)
+            time.sleep(2)  # 错开启动，三路不同时撞 GitHub 限额
             jobs["topics"]   = ex.submit(TopicsCrawler(rate_limit=10.0, token=token).crawl)
+            time.sleep(2)
             jobs["awesome"]  = ex.submit(AwesomeDiscoverer(rate_limit=10.0, token=token).crawl)
             trending_data = jobs["trending"].result()
             topics_data   = jobs["topics"].result()
