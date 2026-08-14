@@ -35,8 +35,8 @@
 | auto_run.bat TCP 端口检测（替代 curl HTTPS） | ✅ | 2026.7.12 |
 | Trending rate_limit 对齐 10s（防止并行时超额） | ✅ | 2026.8.5 |
 | 代理预检（爬虫启动前测 GitHub 连通性，不通直接退出） | ✅ | 2026.8.5 |
-| 重试+超时优化（max_retries 3→1，timeout 8/25→5/15，SSL不重试秒切备代理） | ✅ | 2026.8.13 |
-| Topics/Awesome 改 API 搜索（token 真正生效，限流 30次/分，修掉 token 从没生效的历史 bug） | ✅ | 2026.8.13 |
+| 重试+超时优化（max_retries 3→1，timeout 8/25→5/15，SSL不重试秒切备代理） | ✅ | 2026.8.12 |
+| Topics/Awesome 改 API 搜索（token 真正生效，限流 30次/分，修掉 token 从没生效的历史 bug） | ✅ | 2026.8.12 |
 | SSL 超时拆分（connect=8s read=25s，防止 SSL EOF 卡死） | ✅ | 2026.7.26 |
 | Topics 采集失败标记（-1 替代 0，避免限流空结果被当真实数据） | ✅ | 2026.7.26 |
 | 报告关键词显示具体数量 + 采集失败红色标记 | ✅ | 2026.7.26 |

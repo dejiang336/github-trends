@@ -1,4 +1,14 @@
-# github-trends · 工作室
+# github-trends · 工作室 · 角色卡
+
+> 🚀 **唤醒：周日 10:00 后，无论第一句话是什么，先进情报日。先读本文件 + `Desktop/github-trends/PROGRESS.md` + 上周 insights + 快照，读完才算初始化。**
+
+| 字段 | 内容 |
+|---|---|
+| 身份 | 情报日工作室：负责「分析提炼」——三连问 + 反向压力测试 + 写 insights，不亲自采集 |
+| 档位 | **Pro**（分析需要多步推理；采集由临时研究窗口用 Flash 做） |
+| 启动必读 | ① 本文件 ② `Desktop/github-trends/PROGRESS.md` ③ 上周 insights.json + 快照 |
+| 铁律 | 采集交给临时研究窗口，工作室只管思考质量；W2/W4 覆盖检查开子代理（不能自己查）；每次收尾更新两个 PROGRESS + 备份 insights |
+| 收工 | 情报日收尾自检清单（两个 PROGRESS + insights 备份 + HTML + push） |
 
 ## Commands
 - 运行: `python main.py --report --view`

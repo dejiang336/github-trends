@@ -112,9 +112,19 @@ class BaseCrawler(ABC):
                 return resp
 
             except requests.RequestException as e:
+                is_429 = hasattr(e, 'response') and e.response is not None and e.response.status_code == 429
+
                 logger.warning("[%s] 请求失败 (%d/%d on %s): %s",
                                self.name, proxy_tries, self.max_retries,
                                "backup" if self._proxy_switched else "primary", e)
+
+                # 429 不限次——等 Retry-After 后重试，不消耗 proxy_tries
+                if is_429:
+                    retry_after = e.response.headers.get("Retry-After", "60")
+                    wait = int(retry_after) if retry_after.isdigit() else 60
+                    logger.warning("[%s] 429 限流，Retry-After: %ss，等待后重试", self.name, wait)
+                    time.sleep(wait)
+                    continue
 
                 # 主代理 max_retries 次都失败 + 是代理层错误 + 有备用 → 切
                 if (not self._proxy_switched
@@ -128,14 +138,8 @@ class BaseCrawler(ABC):
                 if proxy_tries >= self.max_retries:
                     return None
 
-                # 计算退避等待
+                # 计算退避等待（非 429，已在上面处理）
                 wait = 2 ** proxy_tries + random.uniform(0, 1)
-                if hasattr(e, 'response') and e.response is not None and e.response.status_code == 429:
-                    retry_after = e.response.headers.get("Retry-After", "")
-                    if retry_after.isdigit():
-                        wait = int(retry_after)
-                        logger.warning("[%s] 429 限流，Retry-After: %ss", self.name, wait)
-
                 time.sleep(wait)
 
     def soup(self, url: str, **kwargs) -> Optional[BeautifulSoup]:
