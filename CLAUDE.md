@@ -132,7 +132,7 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 - [ ] Last30Days PROGRESS → 周轮转表已更新
 - [ ] github-trends PROGRESS → 运行记录 + 快照列表已更新
 - [ ] insights.json → 已备份到 insights/ 目录
-- [ ] HTML 报告 → 已生成
+- [ ] HTML 报告 → **写完 insights 后重新 `python main.py --report`**（爬虫跑的 HTML 用的是旧 insights，必须重跑再删爬虫那份）
 - [ ] 两个仓库 → 已 push
 - [ ] 本次会话有无代码改动未记录到 PROGRESS？
 
