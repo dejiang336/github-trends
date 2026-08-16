@@ -4,10 +4,10 @@
 
 | 字段 | 内容 |
 |---|---|
-| 身份 | 情报日工作室：负责「分析提炼」——三连问 + 反向压力测试 + 写 insights，不亲自采集 |
-| 档位 | **Pro**（分析需要多步推理；采集由临时研究窗口用 Flash 做） |
+| 身份 | 情报日工作室（单窗口）：**采集 + 分析一条龙**——先派 Flash 子代理采集，再 Pro 主会话做三连问 + 反向压力测试 + 写 insights |
+| 档位 | **Pro 主会话**（分析要推理）；**采集派 Flash 子代理**（量大机械省钱） |
 | 启动必读 | ① 本文件 ② `Desktop/github-trends/PROGRESS.md` ③ 上周 insights.json + 快照 |
-| 铁律 | 采集交给临时研究窗口，工作室只管思考质量；W2/W4 覆盖检查开子代理（不能自己查）；每次收尾更新两个 PROGRESS + 备份 insights |
+| 铁律 | 采集用 Flash 子代理（读 `Desktop/Last30Days/CLAUDE.md`），分析用 Pro 主会话；W2/W4 覆盖检查开子代理（不能自己查）；每次收尾更新两个 PROGRESS + 备份 insights |
 | 收工 | 情报日收尾自检清单（两个 PROGRESS + insights 备份 + HTML + push） |
 
 ## Commands
@@ -70,7 +70,7 @@
 - **每次情报日收尾 → 更新 `PROGRESS.md` 每周运行记录 + 数据快照（不等提醒）**
 - 推送前 `git status --short --branch` 确认
 - 攒到自然节点再 push，不每改一行就推
-- 不在工作室窗口跑 /last30days（用临时研究窗口）
+- 不在 Pro 主会话跑 /last30days——采集派 Flash 子代理做，主会话只接结果做分析
 
 ---
 
@@ -89,7 +89,7 @@ ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了
 ```
 存在 → 立刻告诉用户「爬虫挂了，手动补跑」。补跑成功后 `rm` CRASH.txt。
 
-**1. 派任务给临时研究窗口**
+**1. 派 Flash 子代理采集**（子代理显式指定 Flash，读 `Desktop/Last30Days/CLAUDE.md` + `Desktop/Last30Days/PROGRESS.md` 周轮转表，按本周 W1-W4 方向采）：
 - 社区脉搏 `/last30days`（英文引擎，按周轮转表选话题）
 - 中文扫描 B站(bili-cli) + 知乎(zhihu-cli，详见 `available-skills` 记忆)
 - AI 政策雷达
@@ -136,7 +136,7 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 - [ ] 两个仓库 → 已 push
 - [ ] 本次会话有无代码改动未记录到 PROGRESS？
 
-**注意：执行层面的覆盖（数据缺口、漏扫、来源多样性）由临时研究窗口负责，工作室只管思考质量。W2/W4 情报日结束后两边各自跑覆盖检查，临时窗口结果发给工作室，在下次情报日（W3/W1）三连问前过一遍——有执行缺口优先补，有思考盲点下周期调整方向。同一个错误不超过一次。**
+**注意：执行层面的覆盖（数据缺口、漏扫、来源多样性）和思考质量现在都在一个窗口——执行覆盖由 Flash 采集子代理自查（读 `Desktop/Last30Days/CLAUDE.md` #执行覆盖检查），思考覆盖由 Pro 主会话做（读本文 #编排覆盖检查）。W2/W4 情报日结束后两边各自跑覆盖检查，在下次情报日（W3/W1）三连问前过一遍——有执行缺口优先补，有思考盲点下周期调整方向。同一个错误不超过一次。**
 
 ---
 
@@ -149,5 +149,5 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 | 3 | 技术方向 | `C++ systems programming career backend infrastructure hiring 2026` · 分向: `embedded software jobs` / `autonomous driving robotics C++` / `AI compiler infrastructure` |
 | 4 | 开源模型 | `DeepSeek open source models vs proprietary frontier 2026` · 追踪: 参数效率（QwQ 3B激活追平671B类信号）+ 开源基础设施下沉（记忆/推理引擎/云环境） |
 
-B站/知乎搜索词见 `Desktop/Last30Days/CLAUDE.md`（临时研究窗口执行）。
+B站/知乎搜索词见 `Desktop/Last30Days/CLAUDE.md`（由 Flash 采集子代理执行）。
 
