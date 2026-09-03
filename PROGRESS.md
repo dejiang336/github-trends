@@ -59,6 +59,7 @@
 | W10 | 8.12 | ⚠️ 手动补跑 | 1份 | auto 8.10 因语法错误崩溃（代理预检+三路并行+429），手动补跑。已修：Topics/Awesome 改 API 搜索，token 真正生效 |
 | W11 | 8.16 | ✅ auto | 1份 | 自动采集正常（8.16 周日 19:53 跑通） |
 | W12 | 8.23 | ✅ auto | 1份 | 自动采集正常（8.23 周日 14:17 跑通） |
+| W13 | 8.30 | ✅ auto | 1份 | 自动采集正常（8.30 周日 12:25 跑通）；情报日分析 9.3 补做（W3 技术方向） |
 
 ## 数据快照
 
@@ -77,6 +78,7 @@ output/snapshots/
   data_20260812_230243.json  (8.12)
   data_20260816_195301.json  (8.16)
   data_20260823_141736.json  (8.23)
+  data_20260830_122530.json  (8.30)
 ```
 
 ## 维护备忘
@@ -85,4 +87,4 @@ output/snapshots/
 - 代理端口：7897（Clash Verge 首选）→ 7993（UniClash 备用），Python 通过 HTTP_PROXY_BACKUP 知道备用地址
 - 周日晚上来工作室 → 情报日做三连问
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
-- 模型：DeepSeek v4 pro [1M]，缓存命中率 ~97%
+- 模型：GLM glm-5.3-flash @ open.bigmodel.cn（2026.8.27 起单链路）
