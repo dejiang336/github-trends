@@ -130,6 +130,7 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 **情报日收尾自检清单（每周都做，不等提醒）：**
 - [ ] Last30Days PROGRESS → 周轮转表已更新
 - [ ] github-trends PROGRESS → 运行记录 + 快照列表已更新
+- [ ] PROGRESS 表格编辑后 → grep 验证旧行仍在（追加式编辑，不许用新行替换旧行）
 - [ ] insights.json → 已备份到 insights/ 目录
 - [ ] HTML 报告 → **写完 insights 后重新 `python main.py --report`**（爬虫跑的 HTML 用的是旧 insights，必须重跑再删爬虫那份）
 - [ ] 两个仓库 → 已 push
