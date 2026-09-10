@@ -94,6 +94,11 @@ ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了
 - 中文扫描 B站(bili-cli) + 知乎(zhihu-cli，详见 `available-skills` 记忆)
 - AI 政策雷达
 
+**1.5 新面孔 diff 扫描（2026.9.10 新增；派采集的同时主会话自己跑，用快照不耗采集额度）**
+本周快照 top_trending + top_awesome **全量 40 条** vs 前两周快照并集 → diff 出本周新面孔 → 对照上周 insights（含 supplement）已分析名单 → 剩余的逐个过目，不许只挑主线。产出并入三连问第 1 问与「新兴领域」条目；判定无关的也要一句话留痕（「看过且判无关」才算覆盖）。
+- 铁律①：必须用快照全量。HTML 报告每榜只渲染 Top 15（30/40 条），会漏——实例：9/6 awesome-zhuiju-free 排第 18 被截，唯一 Awesome 新面孔在 HTML 上不可见。
+- 铁律②：Awesome 是星速榜换血慢（9/6 实测 19/20 老面孔），新面孔主要出自 Trending 周榜——两榜都要 diff，不能只看一边。
+
 **2. 三连问**（工作室提炼进 insights.json）：
   **分析对象 = 信息收集（社区脉搏/中文扫描/AI 政策）+ 具体仓库（Trending/Awesome 榜单里的新工具新项目）。加载本周+上周快照时，只看 Top Trending/Awesome 的具体仓库「有什么新东西进出」，不看语言热度（lang_heat）和赛道体量（topic_size）的排名涨跌——语言数据保留但只当背景，不驱动路线判断（用户的路线由就业/地缘/AI 替代难度决定，不由 GitHub 语言热度决定，2026.8.23 定位调整）。**
   1. 本周最热的 3 个东西（来自信息收集 + 具体仓库），对你意味着什么
