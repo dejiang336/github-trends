@@ -9,8 +9,8 @@
     python main.py --save               # 采集并保存历史快照（用于下次对比）
 """
 
-import argparse, logging, sys, os, json, time, webbrowser, glob as globmod, traceback
-from datetime import datetime
+import argparse, logging, sys, os, json, re, time, webbrowser, glob as globmod, traceback
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
 # Windows 控制台 GBK 编码无法打印 emoji，强制 UTF-8
@@ -41,6 +41,8 @@ def build_parser():
     p.add_argument("--report",   action="store_true", help="从已存数据生成 HTML 报告")
     p.add_argument("--view",     action="store_true", help="打开浏览器")
     p.add_argument("--save",     action="store_true", help="保存历史快照（自动）")
+    p.add_argument("--check-fresh", action="store_true",
+                   help="本周是否已有有效快照（rc=0 有 / rc=1 无），供 auto_run.bat 幂等闸门使用")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -53,6 +55,100 @@ def _dedup_top(items: list[dict], key: str, sort_by: str, top_n: int = 20) -> li
         if k not in deduped or item[sort_by] > deduped[k][sort_by]:
             deduped[k] = item
     return sorted(deduped.values(), key=lambda r: r[sort_by], reverse=True)[:top_n]
+
+
+# ═══════════════════════════════════════════════════════════════
+#  数据完整性校验 + 幂等闸门
+#  （2026.9.27 加：之前「采集全失败」也会照样写快照、退 0、"Done at"，
+#    坏数据被当真实数据入库；且没有任何「本周是否已采过」的判断）
+# ═══════════════════════════════════════════════════════════════
+
+_SNAPSHOT_RE = re.compile(r"data_(\d{8})_(\d{6})\.json$")
+
+
+def week_start(now: datetime | None = None) -> datetime:
+    """本周一 00:00（本地时间）——幂等闸门的周界。
+
+    周一为界：爬虫周日 10:00 跑，正好落在本周最后一天，
+    下一周的周日与它相隔整 7 天，周序号不会在周日边界上错位。
+    """
+    now = now or datetime.now()
+    return datetime(now.year, now.month, now.day) - timedelta(days=now.weekday())
+
+
+def _snapshot_dt(path: str) -> datetime | None:
+    """从快照文件名 data_YYYYMMDD_HHMMSS.json 解析采集时刻；解析不了返回 None。"""
+    m = _SNAPSHOT_RE.search(str(path).replace("\\", "/"))
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+
+
+def validate_data_pkg(pkg: dict, dims: tuple = ("trending", "topics", "awesome")):
+    """数据完整性校验，返回 (ok, problems, warns)。dims 限定本次实际采集的维度。
+
+    语义依据：Topics 的 -1 是「请求失败」而非「零结果」（见 crawlers/topics.py），
+    所以失败比例是可判定的；Trending 跨 7 语言 × 2 时间窗，真空只可能是抓取失败。
+    """
+    problems, warns = [], []
+
+    n_trending = len(pkg.get("top_trending") or [])
+    n_lang     = len(pkg.get("lang_heat") or {})
+    n_awesome  = len(pkg.get("top_awesome") or [])
+    topics     = pkg.get("topic_size") or {}
+
+    if "trending" in dims:
+        if n_trending == 0 or n_lang == 0:
+            problems.append(f"Trending 全空 (top_trending={n_trending}, lang_heat={n_lang})")
+        elif n_trending < 5:
+            warns.append(f"Trending 偏少 ({n_trending})")
+
+    if "topics" in dims:
+        kws = [k for v in topics.values() for k in (v.get("keywords") or [])]
+        if not kws:
+            problems.append("Topics 无任何关键词记录")
+        else:
+            failed = sum(1 for k in kws if k.get("count", 0) < 0)
+            if failed * 2 >= len(kws):
+                problems.append(f"Topics 关键词失败 {failed}/{len(kws)} (>=50%)")
+            elif failed:
+                warns.append(f"Topics 部分失败 {failed}/{len(kws)}")
+
+    if "awesome" in dims and n_awesome == 0:
+        warns.append("Awesome 空 (已知会限流，非致命)")
+
+    return (not problems), problems, warns
+
+
+def week_is_fresh(now: datetime | None = None, snapshot_dir: str = SNAPSHOT_DIR):
+    """本周是否已有「通过完整性校验」的快照。返回 (ok, reason)。
+
+    只认文件名日期是不够的——被中途杀掉可能留下截断的快照文件，
+    那种文件「存在」但无内容，所以这里必须读回内容再校验一遍。
+    """
+    ws = week_start(now)
+    we = ws + timedelta(days=7)   # 必须卡上界，否则「未来周的快照」会被算成本周的
+    cands = []
+    for p in globmod.glob(f"{snapshot_dir}/data_*.json"):
+        dt = _snapshot_dt(p)
+        if dt and ws <= dt < we:
+            cands.append((dt, p))
+    if not cands:
+        return False, f"本周（{ws:%Y-%m-%d} 周一 起）无快照"
+
+    for dt, p in sorted(cands, reverse=True):
+        try:
+            with open(p, encoding="utf-8") as f:
+                pkg = json.load(f)
+        except Exception:
+            continue  # 截断/损坏的快照跳过，退而看下一份
+        ok, problems, _ = validate_data_pkg(pkg)
+        if ok:
+            return True, f"本周快照有效：{os.path.basename(p)} ({dt:%m-%d %H:%M})"
+    return False, f"本周有 {len(cands)} 份快照，但没有一份通过完整性校验"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -135,6 +231,22 @@ def collect_mode(args):
     # ── 去重 ──
     top_trending = _dedup_top(trending_data, "repo", "stars_period", 20)
     top_awesome  = _dedup_top(awesome_data, "name", "stars", 20)
+
+    # ── 完整性校验（坏数据不许当真数据入库） ──
+    # 放在写 latest_data.json 之前：校验不过就抛错，磁盘上留着的还是上次的好数据，
+    # 报告退而显示上周的真实数据，而不是一个空周。
+    dims = (("trending", "topics", "awesome") if run_all else
+            tuple(d for d, on in (("trending", args.trending),
+                                  ("topics",   args.topics),
+                                  ("awesome",  args.awesome)) if on))
+    ok, problems, warns = validate_data_pkg({
+        "lang_heat": lang_heat, "topic_size": topic_size,
+        "top_trending": top_trending, "top_awesome": top_awesome,
+    }, dims)
+    if not ok:
+        raise RuntimeError("数据不完整，拒绝写入快照：" + "；".join(problems))
+    if warns:
+        print(f"  ⚠️  数据质量告警：{'；'.join(warns)}")
 
     # ── 存 data JSON（原子写入） ──
     os.makedirs("output", exist_ok=True)
@@ -465,14 +577,23 @@ def main():
         datefmt="%H:%M:%S",
     )
     crash_file = "output/CRASH.txt"
+
+    # ── 幂等闸门（供 auto_run.bat 调用：只判定，不采集、不写任何文件） ──
+    if args.check_fresh:
+        ok, why = week_is_fresh()
+        print(("✅ 已有有效快照 — " if ok else "⏳ 尚无有效快照 — ") + why)
+        sys.exit(0 if ok else 1)
+
     try:
         if args.report:
             report_mode(args)
         else:
             collect_mode(args)
-        # 采集/报告成功后清除上次崩溃标记
-        if os.path.exists(crash_file):
-            os.remove(crash_file)
+            # 只有「真的采集成功」才清除崩溃标记。
+            # 2026.9.27 修：原先这句在 if/else 之外，一次成功的 --report
+            # 就会抹掉 collect 留下的 CRASH.txt，制造假绿。
+            if os.path.exists(crash_file):
+                os.remove(crash_file)
     except Exception:
         os.makedirs("output", exist_ok=True)
         with open(crash_file, "w", encoding="utf-8") as f:

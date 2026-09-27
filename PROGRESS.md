@@ -3,7 +3,7 @@
 ## 当前状态
 - 版本：v2.0
 - 数据源：GitHub Trending / Topics / Awesome
-- 自动化：Windows 任务计划 每周日 10:00
+- 自动化：Windows 任务计划 `GitHub-Trends-Weekly` —— 周日 10:00 + **每次登录**（幂等闸门保证一周最多采一次）
 - 部署：本地 Windows + GitHub 备份
 
 ## 功能列表
@@ -42,6 +42,18 @@
 | 报告关键词显示具体数量 + 采集失败红色标记 | ✅ | 2026.7.26 |
 | Python 层代理 fallback（主代理失败自动切备用，ConnectionError/SSLError/ConnectTimeout 触发） | ✅ | 2026.8.2 |
 | f-string `\"` 兼容修复（Python 3.12+ 已弃用） | ✅ | 2026.8.2 |
+| 隐藏窗口启动（wscript+VBS 替代 cmd，杜绝"误关窗口杀爬虫"） | ✅ | 2026.9.27 |
+| 运行标记 `output/RUNNING.lock`（残留 = 上次没跑完就被杀） | ✅ | 2026.9.27 |
+| 幂等闸门（本周已有有效快照则跳过采集；`force` 参数强制重跑） | ✅ | 2026.9.27 |
+| 数据完整性校验（Trending 全空 / Topics 失败≥50% → 拒绝写快照） | ✅ | 2026.9.27 |
+| bat 检查 python 退出码（原先失败也写 "Done at" 并退 0） | ✅ | 2026.9.27 |
+| 失败自动重试（bat 内 3 次 + 计划任务 RestartOnFailure） | ✅ | 2026.9.27 |
+| 登录触发器（开机/登录自动补跑漏掉的周，闸门保证不重复烧限额） | ✅ | 2026.9.27 |
+| 快照原子写（`store.to_json` 原先直接截断写） | ✅ | 2026.9.27 |
+| 修 CRASH.txt 假绿（`--report` 不再抹掉 collect 留下的崩溃记录） | ✅ | 2026.9.27 |
+| 修日志轮转（同文件读写导致 702 行从不裁剪 → 改为超 512KB 改名轮转） | ✅ | 2026.9.27 |
+| 日志时间戳 ASCII 化（原先 GBK 星期名导致整份日志无法用一种编码读） | ✅ | 2026.9.27 |
+| Windows TaskScheduler 诊断日志启用（下次被杀能查出"谁杀的"） | ✅ | 2026.9.27 |
 
 ## 每周运行记录
 
@@ -62,6 +74,9 @@
 | W13 | 8.30 | ✅ auto | 1份 | 自动采集正常（8.30 周日 12:25 跑通）；情报日分析 9.3 补做（W3 技术方向） |
 | W14 | 9.6 | ✅ auto | 1份 | 自动采集正常（9.6 周日 11:42 跑通）；情报日分析 9.9 补做（W4 开源模型） |
 | W14b | 9.10 | ✅ 补做 | 0份 | 新面孔 diff 扫描补分析：40 条全量 vs 8/23+8/30 → 17 新/7 已析 → 10 条补齐（标记 4：patent-disclosure-skill/openclaude/OpenMAIC/video-use；背景级 5），落盘 insights_W4_20260906_supplement.json；情报日流程新增 1.5 步骤（快照全量 diff，HTML Top15 会漏） |
+| W15 | 9.13 | ❌ 未完成 | 0份 | 11:22 开始采集，11:24 被杀（爬到 90 秒）。**无快照、无 CRASH.txt、日志无错误**——静默丢失一周 |
+| W16 | 9.20 | ✅ auto | 1份 | 自动采集正常（16:22 跑通，3m05s） |
+| W17 | 9.27 | ⚠️ 手动补跑 | 1份 | 自动任务 13:38 启动后 **2 秒**被同一原因杀掉；14:05 手动补跑成功。当日定位根因并完成爬虫加固（见下方"2026.9.27 加固"） |
 
 ## 数据快照
 
@@ -82,12 +97,51 @@ output/snapshots/
   data_20260823_141736.json  (8.23)
   data_20260830_122530.json  (8.30)
   data_20260906_114203.json  (9.6 W14)
+  data_20260920_162524.json  (9.20 W16)
+  data_20260927_140509.json  (9.27 W17)
 ```
+
+> **9.13（W15）没有快照** —— 那次被中途杀掉。查历史时别把它当"数据缺失"，
+> 它是"那周真的没采到"。`python main.py --check-fresh` 对那一周会返回非 0。
 
 ## 维护备忘
 
-- 代理挂了 → auto_run.bat 重试 3h（启动阶段）；Python 层自动切备用（运行阶段）
+- 代理挂了 → 首次尝试轮询 2.5h、重试轮询 30min；Python 层自动切备用（运行阶段）
 - 代理端口：7897（Clash Verge 首选）→ 7993（UniClash 备用），Python 通过 HTTP_PROXY_BACKUP 知道备用地址
+
+### 计划任务配置（重装/回退时照此重建）
+
+启动链路：**任务计划 → `wscript.exe //B run_hidden.vbs` → `cmd /c auto_run.bat`**。
+
+⚠️ **不要把它改回 `cmd.exe /c auto_run.bat`** —— 那样会弹一个可见的控制台窗口，
+用户误关窗口 = 进程收到 CTRL_CLOSE = `0xC000013A`，2026.9.13 和 9.27 两次丢失就是这么来的。
+`run_hidden.vbs` 里的 `Run(..., 0, True)` 三个参数缺一不可：`0` 是隐藏窗口，`True` 是等子进程
+返回（**写成 `False` 会让 wscript 立刻退 0，失败重启就永远不会触发**）。
+
+| 设置 | 值 | 为什么 |
+|---|---|---|
+| Action | `wscript.exe //B "…\run_hidden.vbs"` | 隐藏窗口 + 透传退出码 |
+| Principal | `InteractiveToken` / `jd` | **不能改**：Clash 代理是用户会话进程 |
+| Triggers | 周日 10:00 + 登录时（Delay PT2M） | 登录触发器负责补漏 |
+| MultipleInstances | `IgnoreNew` | 防叠加 |
+| StartWhenAvailable | `True` | 错过就补 |
+| RestartOnFailure | Count 3 / Interval PT10M | 失败自动重试 |
+| ExecutionTimeLimit | `PT6H` | 最坏耗时约 3.3h，留 50% 余量；原 PT72H 会让卡死的实例堵死后续触发器 |
+
+原始 XML 备份：项目根目录 `scheduled_task_backup_20260927.xml`（改动前）。
+**改这个任务用 `Set-ScheduledTask` 对象模型，不要直接编辑 XML**——`ExecutionTimeLimit`
+从 CimInstance 直接赋值会被序列化成 `06:00:00` 而非 `PT6H`，报 `0x80041318` 被拒。
+正确做法是用 `New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 6)` 新建。
+
+### 排查入口
+
+- 状态三判据：`output/RUNNING.lock` 残留（被中途杀了）/ `python main.py --check-fresh`（本周有无有效快照）/ `output/CRASH.txt`（崩溃与中断记录，三种前缀含义见 CLAUDE.md 第 0 步）
+- 日志：`output/auto_log.txt`（当前）+ `auto_log.txt.1`（上一次，超 512KB 时轮转）
+- **谁杀了任务**：TaskScheduler 操作日志已于 2026.9.27 启用 →
+  `Get-WinEvent -LogName 'Microsoft-Windows-TaskScheduler/Operational' | Where-Object Message -like '*GitHub-Trends*'`
+- 手动强制补跑：`cmd /c "C:\Users\jd\Desktop\github-trends\auto_run.bat" force`
+- 端到端验证脚手架（不烧 GitHub 限额）：`output/_smoke/`
+
 - 周日晚上来工作室 → 情报日做三连问
 - Token 用量：`npx @yurukusa/cc-context`，缓存 < 90% 提醒
-- 模型：GLM glm-5.3-flash @ open.bigmodel.cn（2026.8.27 起单链路）
+- 模型/链路：**不写死**（会烂），现查 `echo $ANTHROPIC_BASE_URL` + `~/.claude/settings.json`

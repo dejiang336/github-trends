@@ -12,7 +12,9 @@
 
 ## Commands
 - 运行: `python main.py --report --view`
-- 自动采集: `auto_run.bat`（周日触发）
+- 自动采集: `auto_run.bat`（计划任务：周日 10:00 + 每次登录；经 `run_hidden.vbs` 隐藏启动，**不要直接双击或从任务里改回 cmd**）
+- 强制补跑: `cmd /c "C:\Users\jd\Desktop\github-trends\auto_run.bat" force`（绕开幂等闸门）
+- 状态查询: `python main.py --check-fresh`（rc=0 本周已有有效快照）
 
 ## Stack
 - Python 3 + requests + BeautifulSoup
@@ -65,6 +67,26 @@
 
 **回退检查：** 如果爬虫代理挂了还在傻等 → 检查 `HTTP_PROXY_BACKUP` 是否已设、`_is_proxy_error()` 异常类型是否匹配。
 
+### 2026.9.27 加固（"静默失败"专项）
+
+**背景：** 9.13 和 9.27 两次采集被中途杀掉（用户误关可见的 cmd 窗口 → `0xC000013A`），
+**两次都没留任何痕迹**——没快照、没 CRASH.txt、日志只多一行 `^C`。整套机制失效的根因是
+"失败不可见 + 失败不重来"。
+
+| # | 文件 | 改动 |
+|---|------|------|
+| 19 | `run_hidden.vbs`（新增） | `wscript` + `Run(..., 0, True)` 隐藏启动 bat。**第三个参数必须是 `True`**，写成 `False` 会让 wscript 立刻退 0，失败重启永远不触发 |
+| 20 | 计划任务 | Action `cmd.exe /c` → `wscript.exe //B run_hidden.vbs`；加登录触发器（Delay PT2M）+ `RestartOnFailure` 3 次/PT10M；`ExecutionTimeLimit` PT72H→PT6H |
+| 21 | `auto_run.bat` | 重写：写/删 `RUNNING.lock`（残留 = 被杀）、`python` 退出码检查（**原先是无效的**，失败也写 "Done at" 退 0）、`--check-fresh` 幂等闸门、失败重试 3 次、日志按 512KB 改名轮转 |
+| 22 | `main.py` | 新增 `week_start()` / `validate_data_pkg()` / `week_is_fresh()` / `--check-fresh`；采集后**写盘前**校验，不过就抛错（坏数据不许入库）；**修假绿**——`--report` 不再清除 CRASH.txt |
+| 23 | `store.py` | `to_json()` 改原子写（`.tmp` → `os.replace`）。原先是截断写，中途被杀会留下"存在但内容截断"的快照，而幂等闸门正是靠快照判定的 |
+
+**回退检查：**
+- 屏幕上又出现黑窗口 → 检查任务 Action 是不是被改回 `cmd.exe /c auto_run.bat`
+- 爬虫静默不产出 → `python main.py --check-fresh` 是否卡在"fresh"；再看 `RUNNING.lock` 有无残留
+- 采集成"成功"但快照是空的 → 检查 `validate_data_pkg` 是否被绕过
+- 任务显示成功但没数据 → 查 TaskScheduler 操作日志的 action result code（VBS 链路静默失败时唯一的证据）
+
 ## 规则
 - 改爬虫代码 → 自动更新 `PROGRESS.md` 功能清单
 - **每次情报日收尾 → 更新 `PROGRESS.md` 每周运行记录 + 数据快照（不等提醒）**
@@ -81,13 +103,42 @@
 ### 情报日流程
 
 **-1. 先读 PROGRESS + 上周 insights + 查快照**
-`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` + `ls output/snapshots/` 最新文件日期——确认当前轮转周、上次分析结论、季度深度是否到期。**如果最新快照 ≤ 2 天 → 爬虫已跑，直接用现有数据，不要重跑浪费限额。如果是 W2 或 W4：今天有覆盖检查，情报日结束后开 Explore Agent（显式指定 opus）查。** 写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
+`Desktop/Last30Days/PROGRESS.md` + `Desktop/github-trends/output/insights.json` + `ls output/snapshots/` 最新文件日期——确认当前轮转周、上次分析结论、季度深度是否到期。**如果最新快照 ≤ 2 天 → 爬虫已跑，直接用现有数据，不要重跑浪费限额（2026.9.27 起这条由代码强制：`python main.py --check-fresh` 返回 0 时 `auto_run.bat` 直接跳过采集，跑 `force` 才能绕开）。如果是 W2 或 W4：今天有覆盖检查，情报日结束后开 Explore Agent（显式指定 opus）查。** 写本周 insights 时显式引用上周结论（续写/修正/推翻），保持跨周连贯。
 
-**0. CRASH 自检**
+**0. 爬虫状态自检（2026.9.27 改口径）**
+
 ```bash
-ls Desktop/github-trends/output/CRASH.txt 2>/dev/null && echo "🔴 爬虫挂了！" || echo "✅ 爬虫正常"
+cd ~/Desktop/github-trends
+[ -f output/RUNNING.lock ] && echo "🔴 有残留锁 = 上次被中途杀掉" || echo "✅ 无残留锁"
+python main.py --check-fresh; echo "  ← 0=本周有有效快照 / 非0=本周没采到"
+cat output/CRASH.txt 2>/dev/null || echo "（无崩溃记录）"
 ```
-存在 → 立刻告诉用户「爬虫挂了，手动补跑」。补跑成功后 `rm` CRASH.txt。
+
+**三条判据缺一不可。原先只看 `CRASH.txt` 会漏报**——2026.9.13 那次就是这么漏的：进程被
+Ctrl+C/关窗口杀掉属于 `KeyboardInterrupt`，`main.py` 的 `except Exception` 抓不到，
+什么都不写，自检却报「✅ 爬虫正常」。
+
+| 判据 | 异常含义 | 动作 |
+|---|---|---|
+| `RUNNING.lock` 残留 | 没跑完就被杀 | 看 `auto_log.txt.1` 确认死在哪一步，再决定补跑 |
+| `--check-fresh` 非 0 | 本周无有效快照 | **必须补跑**，情报日等不了自动补 |
+| `CRASH.txt` | 见下 | 按前缀分类处理 |
+
+`CRASH.txt` 四种内容，含义不同，别一律当"挂了"：
+
+- `INTERRUPTED …` —— 跑一半被杀，但本周数据完好（或已有）。**不必重爬**
+- `CRAWL-FAILED … rc=N attempts=3` —— bat 内部重试 3 次仍失败，翻日志找根因
+- `PROXY-DEAD …` —— 7897/7993 两个端口都不通
+- 首行是时间戳、随后是 Python traceback —— `main.py` 抛异常（含「数据不完整，拒绝写入快照」）
+
+**先让爬虫自己修**：被杀的运行会在下次登录时自动补跑（登录触发器 + 幂等闸门，不用人管）。
+只有闸门说「本周无有效快照」且你不想再等一次开机，才手动强制：
+
+```bash
+cmd /c "C:\Users\jd\Desktop\github-trends\auto_run.bat" force
+```
+
+补跑成功后 `rm output/CRASH.txt`（正常采集也会自动清）。
 
 **1. 派 Flash 子代理采集**（子代理显式指定 Flash，读 `Desktop/Last30Days/CLAUDE.md` + `Desktop/Last30Days/PROGRESS.md` 周轮转表，按本周 W1-W4 方向采）：
 - 社区脉搏 `/last30days`（英文引擎，按周轮转表选话题）
@@ -140,6 +191,7 @@ W2 过半 + W4 完整周期结束时，开 Explore Agent（**显式指定 opus**
 - [ ] HTML 报告 → **写完 insights 后重新 `python main.py --report`**（爬虫跑的 HTML 用的是旧 insights，必须重跑再删爬虫那份）
 - [ ] 两个仓库 → 已 push
 - [ ] 本次会话有无代码改动未记录到 PROGRESS？
+- [ ] 爬虫收尾干净：`RUNNING.lock` 无残留 · `CRASH.txt` 已清 · 本周有有效快照（`--check-fresh` = 0）
 
 **注意：执行层面的覆盖（数据缺口、漏扫、来源多样性）和思考质量现在都在一个窗口——执行覆盖由 Flash 采集子代理自查（读 `Desktop/Last30Days/CLAUDE.md` #执行覆盖检查），思考覆盖由 Pro 主会话做（读本文 #编排覆盖检查）。W2/W4 情报日结束后两边各自跑覆盖检查，在下次情报日（W3/W1）三连问前过一遍——有执行缺口优先补，有思考盲点下周期调整方向。同一个错误不超过一次。**
 
