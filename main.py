@@ -9,7 +9,7 @@
     python main.py --save               # 采集并保存历史快照（用于下次对比）
 """
 
-import argparse, logging, sys, os, json, re, time, webbrowser, glob as globmod, traceback
+import argparse, logging, sys, os, json, re, time, webbrowser, glob as globmod, traceback, hashlib
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
@@ -44,6 +44,10 @@ def build_parser():
     p.add_argument("--check-fresh", action="store_true",
                    help="本周是否已有有效快照（rc=0 有 / rc=1 无），供 auto_run.bat 幂等闸门使用")
     p.add_argument("-v", "--verbose", action="store_true")
+    p.add_argument("--snapshot", default=None,
+                   help="指定数据快照（默认 output/latest_data.json）；配合 --report 可为历史周补出报告")
+    p.add_argument("--insights-file", default=None, dest="insights_file",
+                   help="指定 insights 文件（默认 output/insights.json）")
     return p
 
 
@@ -298,23 +302,26 @@ def collect_mode(args):
 # ═══════════════════════════════════════════════════════════════
 
 def report_mode(args):
-    if not os.path.exists(DATA_FILE):
-        print(f"❌ 找不到 {DATA_FILE}，请先运行 python main.py 采集数据")
+    data_file = getattr(args, "snapshot", None) or DATA_FILE
+    insights_file = getattr(args, "insights_file", None) or INSIGHTS_FILE
+
+    if not os.path.exists(data_file):
+        print(f"❌ 找不到 {data_file}，请先运行 python main.py 采集数据")
         sys.exit(1)
 
-    with open(DATA_FILE, encoding="utf-8") as f:
+    with open(data_file, encoding="utf-8") as f:
         data = json.load(f)
 
     # ── 读 AI 洞察 ──
     insights = []
-    if os.path.exists(INSIGHTS_FILE):
-        with open(INSIGHTS_FILE, encoding="utf-8") as f:
+    if os.path.exists(insights_file):
+        with open(insights_file, encoding="utf-8") as f:
             insights = json.load(f).get("insights", [])
     if not insights:
         insights = ["💡 AI 洞察尚未生成。在 Claude Code 中说：分析 output/latest_data.json"]
 
     # ── 历史对比 ──
-    prev_data = _load_previous_snapshot()
+    prev_data = _load_previous_snapshot(before=None if data_file == DATA_FILE else data_file)
     changes = _compute_changes(data, prev_data) if prev_data else None
 
     path = build_html_report(data, insights, changes)
@@ -326,13 +333,20 @@ def report_mode(args):
     return path
 
 
-def _load_previous_snapshot() -> dict | None:
-    """加载上一次的历史快照（跳过最当前这一次）。"""
+def _load_previous_snapshot(before: str | None = None) -> dict | None:
+    """加载上一次的历史快照。
+
+    默认跳过最新的一份（给 latest_data.json 用）；传入 before（某个快照路径）时，
+    改为加载该快照**之前**的那一份 —— 给 --snapshot 指定历史周时算排名变化用。
+    """
     files = sorted(globmod.glob(f"{SNAPSHOT_DIR}/data_*.json"), reverse=True)
-    if len(files) < 2:
+    if before and os.path.basename(before) in files:
+        files = files[files.index(os.path.basename(before)) + 1:]
+    else:
+        files = files[1:]
+    if not files:
         return None
-    # files[0] 是当前采集的快照，取 files[1] 即上一次
-    for f in files[1:]:
+    for f in files:
         try:
             with open(f, encoding="utf-8") as fh:
                 return json.load(fh)
@@ -380,7 +394,14 @@ def _compute_changes(curr: dict, prev: dict) -> dict | None:
 # ═══════════════════════════════════════════════════════════════
 
 def build_html_report(data: dict, insights: list[str], changes: dict | None = None) -> str:
-    path = auto_filename("github_trends")
+    # 文件名由「快照 + 洞察」的内容指纹决定：同一份数据配同一份洞察重复渲染时
+    # 落到同一个文件（覆盖），不再每次登录都堆一份新的（2026.10.3 整理）。
+    # 洞察变了（补完分析后重跑）会得到新文件名，旧版本自然留档。
+    _fp = hashlib.md5(
+        (json.dumps(data, sort_keys=True, ensure_ascii=False) + chr(10) + chr(10).join(insights)).encode("utf-8")
+    ).hexdigest()[:8]
+    _snap = str(data.get("timestamp", "")).replace("-", "").replace(":", "").replace(" ", "_")[:15]
+    path = f"output/github_trends_{_snap or datetime.now().strftime('%Y%m%d_%H%M%S')}_{_fp}.html"
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     lang_heat    = data.get("lang_heat", {})
