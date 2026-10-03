@@ -109,10 +109,13 @@
 
 ```bash
 cd ~/Desktop/github-trends
-[ -f output/RUNNING.lock ] && echo "🔴 有残留锁 = 上次被中途杀掉" || echo "✅ 无残留锁"
-python main.py --check-fresh; echo "  ← 0=本周有有效快照 / 非0=本周没采到"
-cat output/CRASH.txt 2>/dev/null || echo "（无崩溃记录）"
+ls output/RUNNING.lock 2>/dev/null      # 有输出 = 🔴 残留锁（上次被中途杀掉）；无输出 = ✅ 干净
+python main.py --check-fresh            # rc=0 本周有有效快照 / 非0 本周没采到
+cat output/CRASH.txt 2>/dev/null        # 无输出 = 无崩溃记录
 ```
+
+> 上面三条全是免弹窗命令（`ls` / `cat` 在用户白名单，`python main.py --check-fresh` 于 2026.10.3 加入）。
+> 这里不写 `echo` 标签——`echo` 不在白名单，会为了一行提示多弹一次确认；判据含义见下表。
 
 **三条判据缺一不可。原先只看 `CRASH.txt` 会漏报**——2026.9.13 那次就是这么漏的：进程被
 Ctrl+C/关窗口杀掉属于 `KeyboardInterrupt`，`main.py` 的 `except Exception` 抓不到，
